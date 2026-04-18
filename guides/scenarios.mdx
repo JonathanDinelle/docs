@@ -1,0 +1,251 @@
+---
+title: "Scenarios"
+description: "Run your agent against multiple inputs and assert on every result."
+---
+
+## What is a scenario?
+
+A scenario is a named set of test cases for your agent. Each run posts pass/fail results to the dashboard so you can track quality over time.
+
+Scenarios have two item types:
+
+| Type | How it works | Cost |
+|------|-------------|------|
+| **Synthetic** | Live LLM, fresh input you define | Real API cost |
+| **Trace-backed** | Mocked LLM, replays a recorded production trace | Zero |
+
+---
+
+## RunScenarioAsync
+
+<CodeGroup>
+```csharp C#
+var result = await veval.RunScenarioAsync(
+    scenarioName:       "my-scenario",
+    agent:              service.ExecuteAsync,
+    scenarioAssertions: [
+        TraceAssert.NoErrors(),
+        TraceAssert.MaxCost(0.10m),
+        TraceAssert.StepExists("classify"),
+    ],
+    items: [
+        new ScenarioItem { Name = "question 1", Input = "What is prompt caching?" },
+        new ScenarioItem { Name = "question 2", Input = "What is tool use?" },
+    ]
+);
+```
+
+```python Python
+result = await veval.run_scenario_async(
+    scenario_name="my-scenario",
+    agent=service.execute_async,
+    scenario_assertions=[
+        TraceAssert.no_errors(),
+        TraceAssert.max_cost(0.10),
+        TraceAssert.step_exists("classify"),
+    ],
+    items=[
+        ScenarioItem(name="question 1", input="What is prompt caching?"),
+        ScenarioItem(name="question 2", input="What is tool use?"),
+    ],
+)
+```
+
+```javascript Node
+const result = await veval.runScenarioAsync(
+  "my-scenario",
+  (ctx) => service.execute(ctx),
+  [
+    TraceAssert.noErrors(),
+    TraceAssert.maxCost(0.10),
+    TraceAssert.stepExists("classify"),
+  ],
+  [
+    { name: "question 1", input: "What is prompt caching?", assertions: [] },
+    { name: "question 2", input: "What is tool use?", assertions: [] },
+  ]
+);
+```
+</CodeGroup>
+
+| Parameter | Description |
+|-----------|-------------|
+| `scenarioName` | Identifies the scenario in the dashboard |
+| `agent` | Your agent — same signature as `RunAsync` |
+| `scenarioAssertions` | Assertions that apply to every item |
+| `items` | List of `ScenarioItem` — inline or fetched from dashboard |
+
+---
+
+## Synthetic items
+
+Use these for new inputs you want to test with a live LLM.
+
+<CodeGroup>
+```csharp C#
+new ScenarioItem
+{
+    Name  = "prompt caching question",
+    Input = "Explain prompt caching in one sentence.",
+}
+```
+
+```python Python
+ScenarioItem(
+    name="prompt caching question",
+    input="Explain prompt caching in one sentence.",
+)
+```
+
+```javascript Node
+{ name: "prompt caching question", input: "Explain prompt caching in one sentence.", assertions: [] }
+```
+</CodeGroup>
+
+---
+
+## Trace-backed items
+
+Use these to replay a recorded production trace with mocked LLM responses — no API cost.
+
+<CodeGroup>
+```csharp C#
+new ScenarioItem
+{
+    Name    = "production trace replay",
+    TraceId = "tr_4ec4e79c5d03...",
+    Assertions = [TraceAssert.MaxCost(0.05m)],  // per-item assertion
+}
+```
+
+```python Python
+ScenarioItem(
+    name="production trace replay",
+    trace_id="tr_4ec4e79c5d03...",
+    assertions=[TraceAssert.max_cost(0.05)],  # per-item assertion
+)
+```
+
+```javascript Node
+{
+  name: "production trace replay",
+  trace_id: "tr_4ec4e79c5d03...",
+  assertions: [TraceAssert.maxCost(0.05)],  // per-item assertion
+}
+```
+</CodeGroup>
+
+<Note>
+  The trace must have recorded steps. If it has none, Veval throws rather than silently calling the live LLM.
+</Note>
+
+---
+
+## Per-item assertions
+
+Each `ScenarioItem` can carry its own assertions on top of the scenario-level ones:
+
+<CodeGroup>
+```csharp C#
+new ScenarioItem
+{
+    Name       = "expensive question",
+    Input      = "Write me a novel.",
+    Assertions = [TraceAssert.MaxCost(0.50m)],  // only for this item
+}
+```
+
+```python Python
+ScenarioItem(
+    name="expensive question",
+    input="Write me a novel.",
+    assertions=[TraceAssert.max_cost(0.50)],  # only for this item
+)
+```
+
+```javascript Node
+{
+  name: "expensive question",
+  input: "Write me a novel.",
+  assertions: [TraceAssert.maxCost(0.50)],  // only for this item
+}
+```
+</CodeGroup>
+
+---
+
+## Fetching items from the dashboard
+
+If `items` is `null`, Veval fetches items for the scenario from the API automatically. This lets you manage test cases in the dashboard without redeploying code.
+
+<CodeGroup>
+```csharp C#
+// items: null → fetched from dashboard by scenarioName
+var result = await veval.RunScenarioAsync(
+    scenarioName:       "my-scenario",
+    agent:              service.ExecuteAsync,
+    scenarioAssertions: [TraceAssert.NoErrors()]
+);
+```
+
+```python Python
+# items=None → fetched from dashboard by scenario_name
+result = await veval.run_scenario_async(
+    scenario_name="my-scenario",
+    agent=service.execute_async,
+    scenario_assertions=[TraceAssert.no_errors()],
+)
+```
+
+```javascript Node
+// items omitted → fetched from dashboard by scenarioName
+const result = await veval.runScenarioAsync(
+  "my-scenario",
+  (ctx) => service.execute(ctx),
+  [TraceAssert.noErrors()]
+);
+```
+</CodeGroup>
+
+---
+
+## ScenarioRunResult
+
+<CodeGroup>
+```csharp C#
+Console.WriteLine($"{result.PassCount}/{result.Results.Count} passed");
+
+foreach (var item in result.Results)
+{
+    Console.WriteLine($"{(item.Passed ? "✓" : "✗")} {item.Item.Name}");
+    foreach (var failure in item.Failures)
+        Console.WriteLine($"  → {failure}");
+}
+```
+
+```python Python
+print(f"{result.pass_count}/{len(result.results)} passed")
+
+for item in result.results:
+    print(f"{'✓' if item.passed else '✗'} {item.item.name}")
+    for failure in item.failures:
+        print(f"  → {failure}")
+```
+
+```javascript Node
+console.log(`${result.pass_count}/${result.results.length} passed`);
+
+for (const item of result.results) {
+  console.log(`${item.passed ? "✓" : "✗"} ${item.item.name}`);
+  for (const failure of item.failures)
+    console.log(`  → ${failure}`);
+}
+```
+</CodeGroup>
+
+| Member | Description |
+|--------|-------------|
+| `Passed` | True if all items passed |
+| `PassCount` | Number of passing items |
+| `FailCount` | Number of failing items |
+| `Results` | List of `ItemRunResult` |

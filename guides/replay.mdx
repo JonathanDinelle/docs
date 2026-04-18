@@ -1,0 +1,235 @@
+---
+title: "Replay"
+description: "Run your agent against recorded traces in unit and integration tests — no live LLM calls."
+---
+
+## Overview
+
+`VevalTestSdk` is a test double for `IVevalSdk`. It replays a recorded trace so your agent code runs with mocked LLM responses — deterministic, fast, and free.
+
+Unlike calling `VevalSdk` directly with a trace, `VevalTestSdk` guarantees no live LLM fallthrough. If a step name doesn't match the recorded trace, it throws immediately.
+
+---
+
+## Setup
+
+<CodeGroup>
+```csharp C#
+// 1. Load a production trace
+var trace = await veval.GetTraceAsync("tr_4ec4e79c5d03...");
+
+// 2. Create the test double
+var testSdk = new VevalTestSdk(new VevalOptions { ApiKey = "YOUR_API_KEY" })
+    .WithReplay(trace);
+
+// 3. Inject into your service (IVevalSdk interface)
+var service = new MyAgentService(testSdk, claude);
+
+// 4. Call normally — no live LLM
+var result = await testSdk.RunAsync("my-agent", service.ExecuteAsync);
+```
+
+```python Python
+# 1. Load a production trace
+trace = await veval.get_trace_async("tr_4ec4e79c5d03...")
+
+# 2. Create the test double
+test_sdk = VevalTestSdk(VevalOptions(api_key="YOUR_API_KEY")).with_replay(trace)
+
+# 3. Inject into your service
+service = MyAgentService(test_sdk, anthropic)
+
+# 4. Call normally — no live LLM
+result = await test_sdk.run_async("my-agent", service.execute_async)
+```
+
+```javascript Node
+// 1. Load a production trace
+const trace = await veval.getTraceAsync("tr_4ec4e79c5d03...");
+
+// 2. Create the test double
+const testSdk = new VevalTestSdk({ apiKey: "YOUR_API_KEY" }).withReplay(trace);
+
+// 3. Inject into your service
+const service = new MyAgentService(testSdk, anthropic);
+
+// 4. Call normally — no live LLM
+const result = await testSdk.runAsync("my-agent", (ctx) => service.execute(ctx));
+```
+</CodeGroup>
+
+<Note>
+  `VevalTestSdk` still reports traces and scenario results to the dashboard, so runs count in your history.
+</Note>
+
+---
+
+## In a test project
+
+<CodeGroup>
+```csharp C#
+[Fact]
+public async Task Agent_ReturnsExpectedOutput()
+{
+    var trace = LoadFixture("trace_prompt_caching.json");  // or fetch from API
+
+    var testSdk = new VevalTestSdk(new VevalOptions { ApiKey = TestApiKey })
+        .WithReplay(trace);
+    var service = new MyAgentService(testSdk, /* mock claude */);
+
+    var result = await testSdk.RunAsync("my-agent", service.ExecuteAsync, input: "test input");
+
+    Assert.Equal("success", testSdk.LastStatus);
+    Assert.Contains("caching", result);
+}
+```
+
+```python Python
+import pytest
+
+async def test_agent_returns_expected_output():
+    trace = load_fixture("trace_prompt_caching.json")  # or fetch from API
+
+    test_sdk = VevalTestSdk(VevalOptions(api_key=TEST_API_KEY)).with_replay(trace)
+    service = MyAgentService(test_sdk)
+
+    result = await test_sdk.run_async("my-agent", service.execute_async, "test input")
+
+    assert test_sdk.last_status == "success"
+    assert "caching" in result
+```
+
+```javascript Node
+import { VevalTestSdk } from "@veval/sdk";
+
+test("agent returns expected output", async () => {
+  const trace = loadFixture("trace_prompt_caching.json");  // or fetch from API
+
+  const testSdk = new VevalTestSdk({ apiKey: TEST_API_KEY }).withReplay(trace);
+  const service = new MyAgentService(testSdk);
+
+  const result = await testSdk.runAsync("my-agent", (ctx) => service.execute(ctx), "test input");
+
+  expect(testSdk.lastStatus).toBe("success");
+  expect(result).toContain("caching");
+});
+```
+</CodeGroup>
+
+---
+
+## Strict mock mode
+
+If your agent calls `TrackStepAsync` with a step name that isn't in the recorded trace, `VevalTestSdk` throws:
+
+```
+InvalidOperationException: Replay mode: no mock output for step 'new_step'.
+Available steps: classify, answer.
+This would have made a real LLM call.
+```
+
+This catches regressions where code changes add new LLM calls that weren't in the original trace.
+
+---
+
+## ReplayAsync directly
+
+For lower-level control, use `ReplayAsync` with explicit assertions:
+
+<CodeGroup>
+```csharp C#
+var replayResult = await testSdk.ReplayAsync(
+    trace,
+    service.ExecuteAsync,
+    new ReplayOptions
+    {
+        MockLlmResponses = true,
+        Assertions       = [
+            TraceAssert.NoErrors(),
+            TraceAssert.StepExists("classify"),
+        ],
+    }
+);
+
+Console.WriteLine(replayResult.Failures.Count == 0 ? "Pass" : "Fail");
+foreach (var f in replayResult.Failures)
+    Console.WriteLine(f);
+```
+
+```python Python
+from veval import ReplayOptions, TraceAssert
+
+replay_result = await test_sdk.replay_async(
+    trace,
+    service.execute_async,
+    ReplayOptions(
+        mock_llm_responses=True,
+        assertions=[
+            TraceAssert.no_errors(),
+            TraceAssert.step_exists("classify"),
+        ],
+    ),
+)
+
+print("Pass" if not replay_result.failures else "Fail")
+for f in replay_result.failures:
+    print(f)
+```
+
+```javascript Node
+import { TraceAssert } from "@veval/sdk";
+
+const replayResult = await testSdk.replayAsync(
+  trace,
+  (ctx) => service.execute(ctx),
+  {
+    mock_llm_responses: true,
+    assertions: [
+      TraceAssert.noErrors(),
+      TraceAssert.stepExists("classify"),
+    ],
+  }
+);
+
+console.log(replayResult.failures.length === 0 ? "Pass" : "Fail");
+for (const f of replayResult.failures)
+  console.log(f);
+```
+</CodeGroup>
+
+| `ReplayResult` member | Description |
+|-----------------------|-------------|
+| `Failures` | List of assertion failure messages |
+| `ReplayedContext` | The `VevalExecutionContext` from the run |
+| `Output` | Return value of your agent |
+| `Status` | `"success"` or `"error"` |
+| `Error` | Exception message if status is `"error"` |
+
+---
+
+## LastStatus / LastError
+
+After `RunAsync`, inspect the outcome without catching exceptions:
+
+<CodeGroup>
+```csharp C#
+await testSdk.RunAsync("my-agent", service.ExecuteAsync);
+
+Assert.Equal("success", testSdk.LastStatus);
+Assert.Null(testSdk.LastError);
+```
+
+```python Python
+await test_sdk.run_async("my-agent", service.execute_async)
+
+assert test_sdk.last_status == "success"
+assert test_sdk.last_error is None
+```
+
+```javascript Node
+await testSdk.runAsync("my-agent", (ctx) => service.execute(ctx));
+
+expect(testSdk.lastStatus).toBe("success");
+expect(testSdk.lastError).toBeNull();
+```
+</CodeGroup>

@@ -1,0 +1,225 @@
+---
+title: "Tracing"
+description: "Record every step of your agent and ship it to the Veval dashboard."
+---
+
+## How tracing works
+
+Every agent run is a **trace** — a record of inputs, outputs, timing, cost, and the steps in between.
+
+1. `VevalSdk.RunAsync` starts a trace, runs your agent, then ships the payload to Veval.
+2. Your agent calls `ctx.TrackStepAsync` for each LLM call or sub-operation.
+3. The trace appears in your dashboard with full step detail.
+
+---
+
+## RunAsync
+
+Wraps a complete agent invocation. Sends a trace on success or error.
+
+<CodeGroup>
+```csharp C#
+var result = await veval.RunAsync(
+    agentName: "my-agent",
+    callback:  ctx => myService.ExecuteAsync(ctx),
+    input:     userMessage   // optional — stored on the trace
+);
+```
+
+```python Python
+result = await veval.run_async(
+    "my-agent",
+    lambda ctx: my_service.execute_async(ctx),
+    user_message,   # optional — stored on the trace
+)
+```
+
+```javascript Node
+const result = await veval.runAsync(
+  "my-agent",
+  (ctx) => myService.execute(ctx),
+  userMessage   // optional — stored on the trace
+);
+```
+</CodeGroup>
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agentName` | `string` | Identifies the agent in the dashboard |
+| `callback` | `Func<VevalExecutionContext, Task<T>>` | Your agent logic |
+| `input` | `object?` | Arbitrary input stored on the trace |
+
+---
+
+## VevalExecutionContext
+
+The context object passed into your agent. Do not instantiate directly — Veval creates it for you.
+
+| Member | Description |
+|--------|-------------|
+| `TraceId` | Unique ID for this run (`tr_...`) |
+| `Input` | The input passed to `RunAsync` |
+| `TrackStepAsync(...)` | Records a step |
+| `SetMetadata(key, value)` | Attaches trace-level metadata |
+
+---
+
+## TrackStepAsync
+
+Records a single step within a trace.
+
+<CodeGroup>
+```csharp C#
+// Simple overload — no handle needed
+var summary = await ctx.TrackStepAsync("summarize", input: text, async () =>
+{
+    return await llm.Summarize(text);
+});
+
+// Handle overload — attach LLM metadata
+var answer = await ctx.TrackStepAsync("answer", input: question, async handle =>
+{
+    var response = await claude.Messages.CreateAsync(...);
+
+    handle.SetMeta("model",      response.Model);
+    handle.SetMeta("tokens_in",  response.Usage.InputTokens);
+    handle.SetMeta("tokens_out", response.Usage.OutputTokens);
+    handle.SetMeta("cost_usd",   0.0012m);
+
+    return response.Content[0].Text;
+});
+```
+
+```python Python
+# Simple overload — no handle needed
+async def summarize():
+    return await llm.summarize(text)
+
+summary = await ctx.track_step_async("summarize", text, summarize)
+
+# Handle overload — attach LLM metadata
+async def answer(handle):
+    response = await anthropic.messages.create(...)
+
+    handle.set_meta("model",      response.model)
+    handle.set_meta("tokens_in",  response.usage.input_tokens)
+    handle.set_meta("tokens_out", response.usage.output_tokens)
+    handle.set_meta("cost_usd",   0.0012)
+
+    return response.content[0].text
+
+answer_text = await ctx.track_step_async("answer", question, answer)
+```
+
+```javascript Node
+// Simple overload — no handle needed
+const summary = await ctx.trackStepAsync("summarize", text, async () => {
+  return await llm.summarize(text);
+});
+
+// Handle overload — attach LLM metadata
+const answer = await ctx.trackStepAsync("answer", question, async (handle) => {
+  const response = await anthropic.messages.create({ ... });
+
+  handle.setMeta("model",      response.model);
+  handle.setMeta("tokens_in",  response.usage.input_tokens);
+  handle.setMeta("tokens_out", response.usage.output_tokens);
+  handle.setMeta("cost_usd",   0.0012);
+
+  return response.content[0].text;
+});
+```
+</CodeGroup>
+
+---
+
+## StepHandle metadata keys
+
+`handle.SetMeta(key, value)` accepts these well-known keys, plus any custom string:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `model` | `string` | Model name (e.g. `claude-sonnet-4-6`) |
+| `tokens_in` | `int` | Input token count |
+| `tokens_out` | `int` | Output token count |
+| `cost_usd` | `decimal` | Cost in USD |
+| `type` | `string` | Step type — use `"tool"` for tool calls |
+| *(custom)* | `object` | Any other key stored in step metadata |
+
+---
+
+## Nested steps
+
+Steps can be nested by passing the `StepHandle` to a child `TrackStepAsync` call.
+
+<CodeGroup>
+```csharp C#
+var result = await ctx.TrackStepAsync("pipeline", input: query, async handle =>
+{
+    var classified = await ctx.TrackStepAsync("classify", input: query, async () =>
+        await llm.Classify(query));
+
+    var answered = await ctx.TrackStepAsync("answer", input: classified, async () =>
+        await llm.Answer(classified));
+
+    return answered;
+});
+```
+
+```python Python
+async def pipeline(handle):
+    async def classify():
+        return await llm.classify(query)
+
+    classified = await ctx.track_step_async("classify", query, classify)
+
+    async def answer():
+        return await llm.answer(classified)
+
+    return await ctx.track_step_async("answer", classified, answer)
+
+result = await ctx.track_step_async("pipeline", query, pipeline)
+```
+
+```javascript Node
+const result = await ctx.trackStepAsync("pipeline", query, async (handle) => {
+  const classified = await ctx.trackStepAsync("classify", query, async () =>
+    await llm.classify(query));
+
+  const answered = await ctx.trackStepAsync("answer", classified, async () =>
+    await llm.answer(classified));
+
+  return answered;
+});
+```
+</CodeGroup>
+
+<Note>
+  Nested steps appear as a tree in the dashboard, letting you see exactly where time and cost are spent.
+</Note>
+
+---
+
+## Trace-level metadata
+
+Attach arbitrary key/value pairs to the whole trace (not a step):
+
+<CodeGroup>
+```csharp C#
+ctx.SetMetadata("user_id",  userId);
+ctx.SetMetadata("session",  sessionId);
+ctx.SetMetadata("region",   "us-east-1");
+```
+
+```python Python
+ctx.set_metadata("user_id",  user_id)
+ctx.set_metadata("session",  session_id)
+ctx.set_metadata("region",   "us-east-1")
+```
+
+```javascript Node
+ctx.setMetadata("user_id",  userId);
+ctx.setMetadata("session",  sessionId);
+ctx.setMetadata("region",   "us-east-1");
+```
+</CodeGroup>

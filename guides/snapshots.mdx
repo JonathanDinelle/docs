@@ -1,0 +1,227 @@
+---
+title: "Snapshots"
+description: "Detect structural regressions by comparing agent step shape against a pinned golden trace."
+---
+
+## Overview
+
+A snapshot records the **step structure** of a known-good agent run — which steps ran, in what order. `CompareSnapshotAsync` compares a new run against that baseline and reports any differences: added steps, removed steps, or reordering.
+
+Two use cases:
+
+- **Production monitoring** — detect silent regressions in live traffic
+- **CI testing** — catch structural changes before they reach production
+
+---
+
+## How it works
+
+1. Pick a known-good production trace as your golden baseline.
+2. Call `LoadSnapshotAsync(traceId)` to load its step structure.
+3. After each run, call `CompareSnapshotAsync(name, snapshot, ctx)`.
+4. If the step shape changed, `SnapshotDiff.HasChanges` is true.
+
+---
+
+## Production monitoring
+
+Compare every live run against a pinned baseline:
+
+<CodeGroup>
+```csharp C#
+// Load once at startup (or cache it)
+var golden = await veval.LoadSnapshotAsync("tr_9bc2024e84324464...");
+
+// In your agent run
+var result = await veval.RunAsync("my-agent", async ctx =>
+{
+    var answer = await myService.ExecuteAsync(ctx);
+
+    // Compare step shape — posts result to dashboard
+    var diff = await veval.CompareSnapshotAsync("my-agent-snapshot", golden!, ctx);
+
+    if (diff.HasChanges)
+    {
+        // log, alert, or handle degradation
+        logger.LogWarning("Structural regression detected in my-agent");
+    }
+
+    return answer;
+});
+```
+
+```python Python
+# Load once at startup (or cache it)
+golden = await veval.load_snapshot_async("tr_9bc2024e84324464...")
+
+# In your agent run
+async def my_agent(ctx):
+    answer = await my_service.execute_async(ctx)
+
+    # Compare step shape — posts result to dashboard
+    diff = await veval.compare_snapshot_async("my-agent-snapshot", golden, ctx)
+
+    if diff.has_changes:
+        # log, alert, or handle degradation
+        logger.warning("Structural regression detected in my-agent")
+
+    return answer
+
+result = await veval.run_async("my-agent", my_agent)
+```
+
+```javascript Node
+// Load once at startup (or cache it)
+const golden = await veval.loadSnapshotAsync("tr_9bc2024e84324464...");
+
+// In your agent run
+const result = await veval.runAsync("my-agent", async (ctx) => {
+  const answer = await myService.execute(ctx);
+
+  // Compare step shape — posts result to dashboard
+  const diff = await veval.compareSnapshotAsync("my-agent-snapshot", golden, ctx);
+
+  if (diff.has_changes) {
+    // log, alert, or handle degradation
+    console.warn("Structural regression detected in my-agent");
+  }
+
+  return answer;
+});
+```
+</CodeGroup>
+
+---
+
+## CI / integration tests
+
+Use `VevalTestSdk` to run at zero LLM cost:
+
+<CodeGroup>
+```csharp C#
+var trace  = await veval.GetTraceAsync("tr_4ec4e79c5d03...");
+var golden = await veval.LoadSnapshotAsync("tr_9bc2024e84324464...");
+
+var testSdk = new VevalTestSdk(new VevalOptions { ApiKey = TestApiKey })
+    .WithReplay(trace);
+var service = new MyAgentService(testSdk, /* mock claude */);
+
+var replayResult = await testSdk.ReplayAsync(
+    trace,
+    service.ExecuteAsync,
+    new ReplayOptions { MockLlmResponses = true, Assertions = [] }
+);
+
+var diff = await veval.CompareSnapshotAsync(
+    "my-agent-snapshot",
+    golden!,
+    replayResult.ReplayedContext!
+);
+
+Assert.False(diff.HasChanges, $"Structural regression: {string.Join(", ", diff.RemovedSteps)}");
+```
+
+```python Python
+trace  = await veval.get_trace_async("tr_4ec4e79c5d03...")
+golden = await veval.load_snapshot_async("tr_9bc2024e84324464...")
+
+test_sdk = VevalTestSdk(VevalOptions(api_key=TEST_API_KEY)).with_replay(trace)
+service  = MyAgentService(test_sdk)
+
+replay_result = await test_sdk.replay_async(
+    trace,
+    service.execute_async,
+    ReplayOptions(mock_llm_responses=True, assertions=[]),
+)
+
+diff = await veval.compare_snapshot_async(
+    "my-agent-snapshot",
+    golden,
+    replay_result.replayed_context,
+)
+
+assert not diff.has_changes, f"Structural regression: {', '.join(diff.removed_steps)}"
+```
+
+```javascript Node
+const trace  = await veval.getTraceAsync("tr_4ec4e79c5d03...");
+const golden = await veval.loadSnapshotAsync("tr_9bc2024e84324464...");
+
+const testSdk = new VevalTestSdk({ apiKey: TEST_API_KEY }).withReplay(trace);
+const service  = new MyAgentService(testSdk);
+
+const replayResult = await testSdk.replayAsync(
+  trace,
+  (ctx) => service.execute(ctx),
+  { mock_llm_responses: true, assertions: [] }
+);
+
+const diff = await veval.compareSnapshotAsync(
+  "my-agent-snapshot",
+  golden,
+  replayResult.replayed_context
+);
+
+expect(diff.has_changes).toBe(false);
+```
+</CodeGroup>
+
+---
+
+## SnapshotDiff
+
+| Member | Description |
+|--------|-------------|
+| `HasChanges` | `true` if any difference was detected |
+| `AddedSteps` | Step names present in actual but not in the snapshot |
+| `RemovedSteps` | Step names present in snapshot but missing from actual |
+| `OrderChanges` | Steps that ran in a different position |
+
+<CodeGroup>
+```csharp C#
+if (diff.HasChanges)
+{
+    foreach (var step in diff.AddedSteps)
+        Console.WriteLine($"+ added:   {step}");
+    foreach (var step in diff.RemovedSteps)
+        Console.WriteLine($"- removed: {step}");
+    foreach (var change in diff.OrderChanges)
+        Console.WriteLine($"~ order:   {change}");
+}
+```
+
+```python Python
+if diff.has_changes:
+    for step in diff.added_steps:
+        print(f"+ added:   {step}")
+    for step in diff.removed_steps:
+        print(f"- removed: {step}")
+    for change in diff.order_changes:
+        print(f"~ order:   {change}")
+```
+
+```javascript Node
+if (diff.has_changes) {
+  for (const step of diff.added_steps)
+    console.log(`+ added:   ${step}`);
+  for (const step of diff.removed_steps)
+    console.log(`- removed: ${step}`);
+  for (const change of diff.order_changes)
+    console.log(`~ order:   ${change}`);
+}
+```
+</CodeGroup>
+
+---
+
+## Choosing a golden trace
+
+Pick a trace that represents the expected "happy path" structure:
+
+- All expected steps completed successfully
+- No error steps
+- Representative of typical production behavior
+
+<Note>
+  Update your golden trace whenever you intentionally change your agent's step structure. Leaving a stale baseline will cause false positives.
+</Note>

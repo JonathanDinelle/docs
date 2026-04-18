@@ -1,0 +1,415 @@
+---
+title: "LLM Reference"
+description: "Complete Veval SDK reference for AI coding agents. Single-page context drop — all three languages, all APIs."
+---
+
+## What Veval does
+
+Veval wraps your agent runs and LLM calls to record traces: inputs, outputs, step timing, token counts, and cost. Traces appear in the dashboard. You run scenarios and assertions against them in CI to catch regressions before they reach production.
+
+Three SDKs, same concept: **C#** (`Veval.Sdk`), **Python** (`veval`), **Node** (`@veval/sdk`).
+
+---
+
+## Install
+
+```bash
+# C#
+dotnet add package Veval.Sdk
+
+# Python
+pip install veval-sdk
+
+# Node
+npm install @veval/sdk
+```
+
+---
+
+## Initialize
+
+```csharp C#
+using Veval.Sdk;
+
+var veval = new VevalSdk(new VevalOptions { ApiKey = "YOUR_API_KEY" });
+```
+
+```python Python
+from veval import VevalSdk, VevalOptions
+
+veval = VevalSdk(VevalOptions(api_key="YOUR_API_KEY"))
+```
+
+```javascript Node
+import { VevalSdk } from "@veval/sdk";
+
+const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
+```
+
+---
+
+## Core API
+
+### RunAsync — wrap a complete agent run
+
+```csharp C#
+var result = await veval.RunAsync("agent-name", async ctx =>
+{
+    // your agent logic using ctx
+    return output;
+}, input: userMessage);  // input is optional
+```
+
+```python Python
+result = await veval.run_async("agent-name", my_agent, user_message)
+# my_agent is async def my_agent(ctx): ...
+# input is optional (positional or keyword)
+```
+
+```javascript Node
+const result = await veval.runAsync("agent-name", async (ctx) => {
+  // your agent logic using ctx
+  return output;
+}, userMessage);  // input is optional
+```
+
+Sends a trace on both success and error. The `ctx` object is a `VevalExecutionContext`.
+
+---
+
+### TrackStepAsync — record one LLM call or sub-operation
+
+**Simple overload** (no metadata):
+
+```csharp C#
+var output = await ctx.TrackStepAsync("step-name", input: text, async () =>
+{
+    return await llm.Call(text);
+});
+```
+
+```python Python
+async def step():
+    return await llm.call(text)
+
+output = await ctx.track_step_async("step-name", text, step)
+```
+
+```javascript Node
+const output = await ctx.trackStepAsync("step-name", text, async () => {
+  return await llm.call(text);
+});
+```
+
+**Handle overload** (attach LLM metadata):
+
+```csharp C#
+var output = await ctx.TrackStepAsync("step-name", input: text, async handle =>
+{
+    var response = await llm.Call(text);
+    handle.SetMeta("model",      response.Model);
+    handle.SetMeta("tokens_in",  response.Usage.InputTokens);
+    handle.SetMeta("tokens_out", response.Usage.OutputTokens);
+    handle.SetMeta("cost_usd",   0.0012m);
+    return response.Content[0].Text;
+});
+```
+
+```python Python
+async def step(handle):
+    response = await llm.call(text)
+    handle.set_meta("model",      response.model)
+    handle.set_meta("tokens_in",  response.usage.input_tokens)
+    handle.set_meta("tokens_out", response.usage.output_tokens)
+    handle.set_meta("cost_usd",   0.0012)
+    return response.content[0].text
+
+output = await ctx.track_step_async("step-name", text, step)
+```
+
+```javascript Node
+const output = await ctx.trackStepAsync("step-name", text, async (handle) => {
+  const response = await llm.call(text);
+  handle.setMeta("model",      response.model);
+  handle.setMeta("tokens_in",  response.usage.input_tokens);
+  handle.setMeta("tokens_out", response.usage.output_tokens);
+  handle.setMeta("cost_usd",   0.0012);
+  return response.content[0].text;
+});
+```
+
+**StepHandle well-known keys** (all SDKs use the same string keys):
+
+| Key | Type | Effect |
+|-----|------|--------|
+| `model` | string | Stored on `step.model` |
+| `tokens_in` | int | Stored on `step.tokens_in` |
+| `tokens_out` | int | Stored on `step.tokens_out` |
+| `cost_usd` | float | Stored on `step.cost_usd` |
+| `type` | string | Use `"tool"` for tool-call steps |
+| *(any other key)* | any | Stored in `step.metadata` dict |
+
+---
+
+### Nested steps
+
+Pass the parent handle's context to nest steps in the dashboard tree:
+
+```csharp C#
+var result = await ctx.TrackStepAsync("pipeline", query, async handle =>
+{
+    var a = await ctx.TrackStepAsync("classify", query, async () => await Classify(query));
+    var b = await ctx.TrackStepAsync("answer",   a,     async () => await Answer(a));
+    return b;
+});
+```
+
+```python Python
+async def pipeline(handle):
+    a = await ctx.track_step_async("classify", query, lambda: classify(query))
+    b = await ctx.track_step_async("answer",   a,     lambda: answer(a))
+    return b
+
+result = await ctx.track_step_async("pipeline", query, pipeline)
+```
+
+```javascript Node
+const result = await ctx.trackStepAsync("pipeline", query, async (handle) => {
+  const a = await ctx.trackStepAsync("classify", query, async () => await classify(query));
+  const b = await ctx.trackStepAsync("answer",   a,     async () => await answer(a));
+  return b;
+});
+```
+
+---
+
+### Trace-level metadata
+
+```csharp C#
+ctx.SetMetadata("user_id", userId);
+ctx.SetMetadata("region",  "us-east-1");
+```
+
+```python Python
+ctx.set_metadata("user_id", user_id)
+ctx.set_metadata("region",  "us-east-1")
+```
+
+```javascript Node
+ctx.setMetadata("user_id", userId);
+ctx.setMetadata("region",  "us-east-1");
+```
+
+---
+
+## Replay / Test SDK
+
+`VevalTestSdk` is a drop-in test double. It mocks LLM step outputs from a recorded trace so no real API calls are made. Throws if a step name isn't found in the trace (strict mode).
+
+```csharp C#
+var trace   = await veval.GetTraceAsync("tr_...");
+var testSdk = new VevalTestSdk(new VevalOptions { ApiKey = "..." }).WithReplay(trace);
+var service = new MyAgentService(testSdk, mockLlm);
+
+var result = await testSdk.RunAsync("agent-name", service.ExecuteAsync);
+
+Assert.Equal("success", testSdk.LastStatus);
+Assert.Null(testSdk.LastError);
+```
+
+```python Python
+trace    = await veval.get_trace_async("tr_...")
+test_sdk = VevalTestSdk(VevalOptions(api_key="...")).with_replay(trace)
+service  = MyAgentService(test_sdk, mock_llm)
+
+result = await test_sdk.run_async("agent-name", service.execute_async)
+
+assert test_sdk.last_status == "success"
+assert test_sdk.last_error is None
+```
+
+```javascript Node
+const trace   = await veval.getTraceAsync("tr_...");
+const testSdk = new VevalTestSdk({ apiKey: "..." }).withReplay(trace);
+const service = new MyAgentService(testSdk, mockLlm);
+
+const result = await testSdk.runAsync("agent-name", (ctx) => service.execute(ctx));
+
+expect(testSdk.lastStatus).toBe("success");
+expect(testSdk.lastError).toBeNull();
+```
+
+### ReplayAsync (lower-level)
+
+```csharp C#
+var r = await testSdk.ReplayAsync(trace, service.ExecuteAsync,
+    new ReplayOptions { MockLlmResponses = true, Assertions = [TraceAssert.NoErrors()] });
+// r.Failures, r.ReplayedContext, r.Output, r.Status, r.Error
+```
+
+```python Python
+r = await test_sdk.replay_async(trace, service.execute_async,
+    ReplayOptions(mock_llm_responses=True, assertions=[TraceAssert.no_errors()]))
+# r.failures, r.replayed_context, r.output, r.status, r.error
+```
+
+```javascript Node
+const r = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx),
+  { mock_llm_responses: true, assertions: [TraceAssert.noErrors()] });
+// r.failures, r.replayed_context, r.output, r.status, r.error
+```
+
+---
+
+## Assertions
+
+All assertions implement `ITraceAssertion`. They return `null` on pass or a failure string.
+
+**Built-in factory — all three languages:**
+
+| C# | Python | Node | Description |
+|----|--------|------|-------------|
+| `TraceAssert.NoErrors()` | `TraceAssert.no_errors()` | `TraceAssert.noErrors()` | Fail if any step has error status |
+| `TraceAssert.MaxSteps(n)` | `TraceAssert.max_steps(n)` | `TraceAssert.maxSteps(n)` | Fail if total step count > n |
+| `TraceAssert.MaxCost(n)` | `TraceAssert.max_cost(n)` | `TraceAssert.maxCost(n)` | Fail if total cost_usd > n |
+| `TraceAssert.MaxDuration(ms)` | `TraceAssert.max_duration(ms)` | `TraceAssert.maxDuration(ms)` | Fail if total duration > ms |
+| `TraceAssert.StepExists("name")` | `TraceAssert.step_exists("name")` | `TraceAssert.stepExists("name")` | Fail if named step not found |
+| `TraceAssert.OutputContains("s")` | `TraceAssert.output_contains("s")` | `TraceAssert.outputContains("s")` | Fail if no step output contains s |
+| `TraceAssert.ToolCalled("name")` | `TraceAssert.tool_called("name")` | `TraceAssert.toolCalled("name")` | Fail if no tool step with that name |
+
+**Custom assertion:**
+
+```csharp C#
+public class MyAssertion : ITraceAssertion
+{
+    public string? Evaluate(VevalExecutionContext ctx)
+    {
+        // inspect ctx.Steps, return null to pass or a message to fail
+        return null;
+    }
+}
+```
+
+```python Python
+from veval import ITraceAssertion
+
+class MyAssertion(ITraceAssertion):
+    def evaluate(self, ctx) -> str | None:
+        # inspect ctx.steps, return None to pass or a message to fail
+        return None
+```
+
+```javascript Node
+class MyAssertion {
+  evaluate(ctx) {
+    // inspect ctx.steps, return null to pass or a message to fail
+    return null;
+  }
+}
+```
+
+---
+
+## Scenarios
+
+Run your agent against multiple inputs and post pass/fail to the dashboard.
+
+```csharp C#
+var result = await veval.RunScenarioAsync(
+    scenarioName:       "my-scenario",
+    agent:              service.ExecuteAsync,
+    scenarioAssertions: [TraceAssert.NoErrors(), TraceAssert.MaxCost(0.10m)],
+    items: [
+        new ScenarioItem { Name = "q1", Input = "What is prompt caching?" },
+        new ScenarioItem { Name = "replay", TraceId = "tr_...", Assertions = [TraceAssert.MaxCost(0.01m)] },
+    ]
+);
+// result.Passed, result.PassCount, result.FailCount, result.Results
+```
+
+```python Python
+result = await veval.run_scenario_async(
+    scenario_name="my-scenario",
+    agent=service.execute_async,
+    scenario_assertions=[TraceAssert.no_errors(), TraceAssert.max_cost(0.10)],
+    items=[
+        ScenarioItem(name="q1", input="What is prompt caching?"),
+        ScenarioItem(name="replay", trace_id="tr_...", assertions=[TraceAssert.max_cost(0.01)]),
+    ],
+)
+# result.passed, result.pass_count, result.fail_count, result.results
+```
+
+```javascript Node
+const result = await veval.runScenarioAsync(
+  "my-scenario",
+  (ctx) => service.execute(ctx),
+  [TraceAssert.noErrors(), TraceAssert.maxCost(0.10)],
+  [
+    { name: "q1", input: "What is prompt caching?", assertions: [] },
+    { name: "replay", trace_id: "tr_...", assertions: [TraceAssert.maxCost(0.01)] },
+  ]
+);
+// result.passed, result.pass_count, result.fail_count, result.results
+```
+
+`ScenarioItem` fields: `name` (string), `input` (any), `trace_id` (string) — provide either `input` (live LLM) or `trace_id` (mocked replay), not both. `assertions` is always an array (can be empty).
+
+Pass `items: null` / omit `items` to fetch them from the dashboard by `scenarioName`.
+
+---
+
+## Snapshots
+
+Detect structural regressions by comparing step shape against a pinned golden trace.
+
+```csharp C#
+// load golden once at startup
+var golden = await veval.LoadSnapshotAsync("tr_golden...");
+
+// inside RunAsync callback, after your agent runs
+var diff = await veval.CompareSnapshotAsync("snapshot-name", golden!, ctx);
+if (diff.HasChanges) { /* alert */ }
+```
+
+```python Python
+golden = await veval.load_snapshot_async("tr_golden...")
+
+# inside run_async callback, after your agent runs
+diff = await veval.compare_snapshot_async("snapshot-name", golden, ctx)
+if diff.has_changes:
+    pass  # alert
+```
+
+```javascript Node
+const golden = await veval.loadSnapshotAsync("tr_golden...");
+
+// inside runAsync callback, after your agent runs
+const diff = await veval.compareSnapshotAsync("snapshot-name", golden, ctx);
+if (diff.has_changes) { /* alert */ }
+```
+
+`SnapshotDiff` fields (same names in all SDKs): `has_changes` (bool), `added_steps` (string[]), `removed_steps` (string[]), `order_changes` (string[]).
+
+---
+
+## Naming convention cheat sheet
+
+| Concept | C# | Python | Node |
+|---------|----|--------|------|
+| SDK class | `VevalSdk` | `VevalSdk` | `VevalSdk` |
+| Test SDK | `VevalTestSdk` | `VevalTestSdk` | `VevalTestSdk` |
+| Options | `VevalOptions { ApiKey }` | `VevalOptions(api_key=)` | `{ apiKey: }` |
+| Run agent | `RunAsync` | `run_async` | `runAsync` |
+| Record step | `TrackStepAsync` | `track_step_async` | `trackStepAsync` |
+| Trace metadata | `SetMetadata` | `set_metadata` | `setMetadata` |
+| Step metadata | `handle.SetMeta` | `handle.set_meta` | `handle.setMeta` |
+| Load replay | `WithReplay` | `with_replay` | `withReplay` |
+| Run replay | `ReplayAsync` | `replay_async` | `replayAsync` |
+| Run scenario | `RunScenarioAsync` | `run_scenario_async` | `runScenarioAsync` |
+| Load snapshot | `LoadSnapshotAsync` | `load_snapshot_async` | `loadSnapshotAsync` |
+| Compare snapshot | `CompareSnapshotAsync` | `compare_snapshot_async` | `compareSnapshotAsync` |
+| Assertion factory | `TraceAssert.NoErrors()` | `TraceAssert.no_errors()` | `TraceAssert.noErrors()` |
+| Context input | `ctx.Input` | `ctx.input` | `ctx.input` |
+| Context trace ID | `ctx.TraceId` | `ctx.trace_id` | `ctx.traceId` |
+| Last run status | `testSdk.LastStatus` | `test_sdk.last_status` | `testSdk.lastStatus` |

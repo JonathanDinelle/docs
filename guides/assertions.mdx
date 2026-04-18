@@ -1,0 +1,291 @@
+---
+title: "Assertions"
+description: "Built-in checks that validate agent behavior after every run."
+---
+
+## Overview
+
+Assertions evaluate a completed `VevalExecutionContext` and return a failure message or `null` on pass. They can be attached to scenarios (applied to every item) or to individual `ScenarioItem`s.
+
+---
+
+## Built-in assertions
+
+### NoErrors
+
+Fails if any step completed with error status.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.NoErrors()
+```
+
+```python Python
+TraceAssert.no_errors()
+```
+
+```javascript Node
+TraceAssert.noErrors()
+```
+</CodeGroup>
+
+---
+
+### MaxSteps
+
+Fails if the total number of steps (including nested) exceeds the limit.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.MaxSteps(10)
+```
+
+```python Python
+TraceAssert.max_steps(10)
+```
+
+```javascript Node
+TraceAssert.maxSteps(10)
+```
+</CodeGroup>
+
+---
+
+### MaxCost
+
+Fails if the total `cost_usd` across all steps exceeds the limit.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.MaxCost(0.10m)   // $0.10 max
+```
+
+```python Python
+TraceAssert.max_cost(0.10)   # $0.10 max
+```
+
+```javascript Node
+TraceAssert.maxCost(0.10)   // $0.10 max
+```
+</CodeGroup>
+
+---
+
+### MaxDuration
+
+Fails if the total step duration exceeds the limit in milliseconds.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.MaxDuration(5000)   // 5 seconds max
+```
+
+```python Python
+TraceAssert.max_duration(5000)   # 5 seconds max
+```
+
+```javascript Node
+TraceAssert.maxDuration(5000)   // 5 seconds max
+```
+</CodeGroup>
+
+---
+
+### StepExists
+
+Fails if no step with the given name exists anywhere in the trace (including nested steps).
+
+<CodeGroup>
+```csharp C#
+TraceAssert.StepExists("classify")
+TraceAssert.StepExists("answer")
+```
+
+```python Python
+TraceAssert.step_exists("classify")
+TraceAssert.step_exists("answer")
+```
+
+```javascript Node
+TraceAssert.stepExists("classify")
+TraceAssert.stepExists("answer")
+```
+</CodeGroup>
+
+---
+
+### OutputContains
+
+Fails if no step's output contains the expected string.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.OutputContains("summarized")
+```
+
+```python Python
+TraceAssert.output_contains("summarized")
+```
+
+```javascript Node
+TraceAssert.outputContains("summarized")
+```
+</CodeGroup>
+
+---
+
+### ToolCalled
+
+Fails if no step with `type = "tool"` and the given name was recorded. Use `handle.SetMeta("type", "tool")` when recording tool steps.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.ToolCalled("web_search")
+```
+
+```python Python
+TraceAssert.tool_called("web_search")
+```
+
+```javascript Node
+TraceAssert.toolCalled("web_search")
+```
+</CodeGroup>
+
+---
+
+## Custom assertions
+
+Implement `ITraceAssertion` to write your own:
+
+<CodeGroup>
+```csharp C#
+public class OutputLengthAssertion : ITraceAssertion
+{
+    private readonly int _maxChars;
+    public OutputLengthAssertion(int maxChars) => _maxChars = maxChars;
+
+    public string? Evaluate(VevalExecutionContext ctx)
+    {
+        foreach (var step in ctx.Steps)
+        {
+            var len = step.Output?.ToString()?.Length ?? 0;
+            if (len > _maxChars)
+                return $"OutputLength: step '{step.Name}' output is {len} chars (max {_maxChars})";
+        }
+        return null;  // pass
+    }
+}
+
+// Use it
+TraceAssert.NoErrors(),
+new OutputLengthAssertion(500),
+```
+
+```python Python
+from veval import ITraceAssertion
+
+class OutputLengthAssertion(ITraceAssertion):
+    def __init__(self, max_chars: int):
+        self._max_chars = max_chars
+
+    def evaluate(self, ctx) -> str | None:
+        for step in ctx.steps:
+            length = len(str(step.output)) if step.output is not None else 0
+            if length > self._max_chars:
+                return f"OutputLength: step '{step.name}' output is {length} chars (max {self._max_chars})"
+        return None  # pass
+
+# Use it
+TraceAssert.no_errors(),
+OutputLengthAssertion(500),
+```
+
+```javascript Node
+class OutputLengthAssertion {
+  constructor(maxChars) {
+    this.maxChars = maxChars;
+  }
+
+  evaluate(ctx) {
+    for (const step of ctx.steps) {
+      const len = step.output != null ? String(step.output).length : 0;
+      if (len > this.maxChars)
+        return `OutputLength: step '${step.name}' output is ${len} chars (max ${this.maxChars})`;
+    }
+    return null;  // pass
+  }
+}
+
+// Use it
+TraceAssert.noErrors(),
+new OutputLengthAssertion(500),
+```
+</CodeGroup>
+
+---
+
+## Scope: scenario vs. per-item
+
+<CodeGroup>
+```csharp C#
+await veval.RunScenarioAsync(
+    scenarioName: "my-scenario",
+    agent:        service.ExecuteAsync,
+    // applied to every item
+    scenarioAssertions: [
+        TraceAssert.NoErrors(),
+        TraceAssert.MaxSteps(10),
+    ],
+    items: [
+        new ScenarioItem
+        {
+            Name  = "cheap question",
+            Input = "What is 2+2?",
+            // applied only to this item, on top of scenario assertions
+            Assertions = [TraceAssert.MaxCost(0.001m)],
+        },
+    ]
+);
+```
+
+```python Python
+await veval.run_scenario_async(
+    scenario_name="my-scenario",
+    agent=service.execute_async,
+    # applied to every item
+    scenario_assertions=[
+        TraceAssert.no_errors(),
+        TraceAssert.max_steps(10),
+    ],
+    items=[
+        ScenarioItem(
+            name="cheap question",
+            input="What is 2+2?",
+            # applied only to this item, on top of scenario assertions
+            assertions=[TraceAssert.max_cost(0.001)],
+        ),
+    ],
+)
+```
+
+```javascript Node
+await veval.runScenarioAsync(
+  "my-scenario",
+  (ctx) => service.execute(ctx),
+  // applied to every item
+  [
+    TraceAssert.noErrors(),
+    TraceAssert.maxSteps(10),
+  ],
+  [
+    {
+      name: "cheap question",
+      input: "What is 2+2?",
+      // applied only to this item, on top of scenario assertions
+      assertions: [TraceAssert.maxCost(0.001)],
+    },
+  ]
+);
+```
+</CodeGroup>

@@ -1,80 +1,188 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Start sending traces to Veval in minutes."
 ---
 
-## Get started in three steps
+## Install
 
-Get your documentation site running locally and make your first customization.
+<CodeGroup>
+```bash C#
+dotnet add package Veval.Sdk
+```
 
-### Step 1: Set up your local environment
+```bash Python
+pip install veval-sdk
+```
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+```bash Node
+npm install @veval/sdk
+```
+</CodeGroup>
 
-### Step 2: Deploy your changes
+## Get your API key
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Go to [dashboard.veval.dev](https://dashboard.veval.dev) → Settings → API Keys.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+---
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Part 1: Minimal trace (no LLM required)
 
-### Step 3: Go live
+The simplest possible integration — wrap any async operation and it appears in your dashboard.
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<CodeGroup>
+```csharp C#
+using Veval.Sdk;
 
-## Next steps
+var veval = new VevalSdk(new VevalOptions
+{
+    ApiKey   = "YOUR_API_KEY",
+    Endpoint = "https://api.veval.dev",
+});
 
-Now that you have your docs running, explore these key features:
+var result = await veval.RunAsync("my-agent", async ctx =>
+{
+    var output = await ctx.TrackStepAsync("summarize", input: "hello world", async () =>
+    {
+        // replace with your real LLM call
+        return "Hello, world!";
+    });
 
-<CardGroup cols={2}>
+    return output;
+});
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+veval.Dispose();
+```
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+```python Python
+import asyncio
+from veval import VevalSdk, VevalOptions
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+veval = VevalSdk(VevalOptions(api_key="YOUR_API_KEY"))
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+async def main():
+    async def my_agent(ctx):
+        async def summarize():
+            # replace with your real LLM call
+            return "Hello, world!"
 
-</CardGroup>
+        return await ctx.track_step_async("summarize", "hello world", summarize)
+
+    result = await veval.run_async("my-agent", my_agent)
+
+asyncio.run(main())
+```
+
+```javascript Node
+import { VevalSdk } from "@veval/sdk";
+
+const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
+
+const result = await veval.runAsync("my-agent", async (ctx) => {
+  const output = await ctx.trackStepAsync("summarize", "hello world", async () => {
+    // replace with your real LLM call
+    return "Hello, world!";
+  });
+  return output;
+});
+```
+</CodeGroup>
+
+That's it. Open your dashboard — you'll see a trace with one step.
+
+---
+
+## Part 2: Service pattern (recommended for production)
+
+For real agents, pass the execution context into your service class so every LLM call is tracked automatically.
+
+<CodeGroup>
+```csharp C#
+// Your agent service accepts VevalExecutionContext
+public class MyAgentService(IVevalSdk veval, AnthropicClient claude)
+{
+    public async Task<string> ExecuteAsync(VevalExecutionContext ctx)
+    {
+        var answer = await ctx.TrackStepAsync("answer", ctx.Input, async handle =>
+        {
+            var response = await claude.Messages.CreateAsync(...);
+
+            // attach LLM metadata to the step
+            handle.SetMeta("model",      response.Model);
+            handle.SetMeta("tokens_in",  response.Usage.InputTokens);
+            handle.SetMeta("tokens_out", response.Usage.OutputTokens);
+            handle.SetMeta("cost_usd",   ComputeCost(response.Usage));
+
+            return response.Content[0].Text;
+        });
+
+        return answer;
+    }
+}
+
+// Wire it up
+var veval   = new VevalSdk(new VevalOptions { ApiKey = "YOUR_API_KEY" });
+var service = new MyAgentService(veval, claude);
+
+var result = await veval.RunAsync("my-agent", service.ExecuteAsync, input: userMessage);
+```
+
+```python Python
+# Your agent service accepts VevalExecutionContext
+class MyAgentService:
+    def __init__(self, anthropic):
+        self._anthropic = anthropic
+
+    async def execute_async(self, ctx):
+        async def step(handle):
+            response = await self._anthropic.messages.create(...)
+
+            # attach LLM metadata to the step
+            handle.set_meta("model",      response.model)
+            handle.set_meta("tokens_in",  response.usage.input_tokens)
+            handle.set_meta("tokens_out", response.usage.output_tokens)
+            handle.set_meta("cost_usd",   compute_cost(response.usage))
+
+            return response.content[0].text
+
+        return await ctx.track_step_async("answer", ctx.input, step)
+
+# Wire it up
+veval   = VevalSdk(VevalOptions(api_key="YOUR_API_KEY"))
+service = MyAgentService(anthropic)
+
+result = await veval.run_async("my-agent", service.execute_async, input=user_message)
+```
+
+```javascript Node
+// Your agent service accepts VevalExecutionContext
+class MyAgentService {
+  constructor(anthropic) {
+    this.anthropic = anthropic;
+  }
+
+  async execute(ctx) {
+    return await ctx.trackStepAsync("answer", ctx.input, async (handle) => {
+      const response = await this.anthropic.messages.create({ ... });
+
+      // attach LLM metadata to the step
+      handle.setMeta("model",      response.model);
+      handle.setMeta("tokens_in",  response.usage.input_tokens);
+      handle.setMeta("tokens_out", response.usage.output_tokens);
+      handle.setMeta("cost_usd",   computeCost(response.usage));
+
+      return response.content[0].text;
+    });
+  }
+}
+
+// Wire it up
+const veval   = new VevalSdk({ apiKey: "YOUR_API_KEY" });
+const service = new MyAgentService(anthropic);
+
+const result = await veval.runAsync("my-agent", (ctx) => service.execute(ctx), userMessage);
+```
+</CodeGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Injecting `IVevalSdk` (the interface) lets you swap in `VevalTestSdk` in tests — no live LLM calls, no API cost. See [Replay](/guides/replay).
 </Note>
