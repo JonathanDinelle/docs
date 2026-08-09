@@ -154,6 +154,31 @@ TraceAssert.toolCalled("web_search")
 
 ---
 
+### Judge
+
+Scores the trace's output against a rubric using an LLM judge, evaluated server-side. Fails if the judge's `passed` verdict is `false`. The score and reasoning are recorded on the run whether the judge passes or fails.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.Judge(veval, "The answer directly addresses the user's question and cites a source")
+TraceAssert.Judge(veval, "The response is polite and on-topic", new JudgeOptions { Model = "claude-fable-5" })
+```
+
+```python Python
+TraceAssert.judge(veval, "The answer directly addresses the user's question and cites a source")
+TraceAssert.judge(veval, "The response is polite and on-topic", model="claude-fable-5")
+```
+
+```javascript Node
+TraceAssert.judge(veval, "The answer directly addresses the user's question and cites a source")
+TraceAssert.judge(veval, "The response is polite and on-topic", "claude-fable-5")
+```
+</CodeGroup>
+
+`model` is optional — omit it to use the account's default judge model. A judge call that fails outright (network error, provider error) is treated as an assertion failure rather than a silent pass.
+
+---
+
 ## Custom assertions
 
 Implement `ITraceAssertion` to write your own:
