@@ -1,170 +1,199 @@
 ---
 title: "Snapshots"
-description: "Detect structural regressions by comparing agent step shape against a pinned golden trace."
+description: "Catch changes to what your agent does and what it sends — prompts, tool arguments, extra or dropped calls — by comparing runs against a stored known-good baseline."
 ---
 
 ## Overview
 
-A snapshot records the **step structure** of a known-good agent run — which steps ran, in what order. `CompareSnapshotAsync` compares a new run against that baseline and reports any differences: added steps, removed steps, or reordering.
+A snapshot is a **known-good run**, stored in Veval: every step in order, with the input your agent sent to it and the output it got back. Comparing a new run against it reports:
 
-Two use cases:
+| Change | Example |
+|--------|---------|
+| **Input changed** | The system prompt was edited; a tool now gets different arguments |
+| **Added** | A new step ran — or a known step ran *again* (e.g. a second LLM call) |
+| **Removed** | A step stopped running |
+| **Moved** | A step ran at a different point in the sequence |
+| **Output changed** | Only when you opt in (`CompareOutputs`) — for deterministic steps |
 
-- **Production monitoring** — detect silent regressions in live traffic
-- **CI testing** — catch structural changes before they reach production
+Every change comes with its position and, for input/output changes, a line diff — so a failing test tells you *what* changed, not just *that* something did.
+
+<Tip>
+  **Snapshots and the judge are complementary.** In replay, model outputs are recorded, so the step *inputs* are where a code or prompt change shows up — a snapshot catches it for free, with no LLM call. Whether the change made the output *better or worse* is a question for a live `TraceAssert.Judge` run.
+</Tip>
 
 ---
 
-## How it works
+## Save a baseline
 
-1. Pick a known-good production trace as your golden baseline.
-2. Call `LoadSnapshotAsync(traceId)` to load its step structure.
-3. After each run, call `CompareSnapshotAsync(name, snapshot, ctx)`.
-4. If the step shape changed, `SnapshotDiff.HasChanges` is true.
+Pick a known-good production run and save it under a name. The baseline is stored self-contained, and its source trace is **pinned**, so neither is removed by trace retention.
+
+<CodeGroup>
+```csharp C#
+await veval.SaveSnapshotAsync("briefing-baseline", "tr_9bc2024e84324464...");
+```
+
+```python Python
+await veval.save_snapshot_async("briefing-baseline", "tr_9bc2024e84324464...")
+```
+
+```javascript Node
+await veval.saveSnapshotAsync("briefing-baseline", "tr_9bc2024e84324464...");
+```
+</CodeGroup>
+
+You can also save from a run you just executed (e.g. a replay or test run) by passing its context instead of a trace ID. Saving again under the same name replaces the baseline — do that when you change the agent intentionally.
+
+<Note>
+  Traces are ingested asynchronously. Saving by trace ID right after a run can return 404 until the trace lands — retry shortly, or save from the run's context instead.
+</Note>
+
+---
+
+## Check a run in tests
+
+Use `MatchesSnapshot` like any other assertion — in a replay, a scenario, or on its own. A missing baseline, or one that can't be loaded, **fails** the assertion; it never passes silently.
+
+<CodeGroup>
+```csharp C#
+var trace = await veval.GetTraceAsync("tr_9bc2024e84324464...");
+var testSdk = new VevalTestSdk(new VevalOptions { ApiKey = TestApiKey }).WithReplay(trace!);
+var agent = new MyAgent(testSdk);
+
+var result = await testSdk.ReplayAsync(trace!, agent.ExecuteAsync, new ReplayOptions
+{
+    MockLlmResponses = true,
+    Assertions = [TraceAssert.MatchesSnapshot(testSdk, "briefing-baseline")],
+});
+
+Assert.True(result.Passed, string.Join("\n", result.Failures));
+```
+
+```python Python
+trace = await veval.get_trace_async("tr_9bc2024e84324464...")
+test_sdk = VevalTestSdk(VevalOptions(api_key=TEST_API_KEY)).with_replay(trace)
+agent = MyAgent(test_sdk)
+
+result = await test_sdk.replay_async(trace, agent.execute_async, ReplayOptions(
+    mock_llm_responses=True,
+    assertions=[TraceAssert.matches_snapshot(test_sdk, "briefing-baseline")],
+))
+
+assert result.passed, "\n".join(result.failures)
+```
+
+```javascript Node
+const trace = await veval.getTraceAsync("tr_9bc2024e84324464...");
+const testSdk = new VevalTestSdk({ apiKey: TEST_API_KEY }).withReplay(trace);
+const agent = new MyAgent(testSdk);
+
+const result = await testSdk.replayAsync(trace, (ctx) => agent.execute(ctx), {
+  mock_llm_responses: true,
+  assertions: [TraceAssert.matchesSnapshot(testSdk, "briefing-baseline")],
+});
+
+expect(result.failures).toEqual([]);
+```
+</CodeGroup>
+
+A failure reads like this:
+
+```text
+MatchesSnapshot: Snapshot 'briefing-baseline': 2 change(s)
+  ~ input changed for 'write-briefing'
+        Write a concise, friendly briefing...
+      - 3. **Tasks** — overdue items first, then what's due today.
+      + 3. **Tasks** — list every open task alphabetically by title.
+  + added 'write-briefing' (call #2) at position 5
+```
+
+To run fully offline in CI, register the baseline locally with `WithSnapshot(name, snapshot)` (`with_snapshot` / `withSnapshot`) on the test SDK.
+
+---
+
+## Guard every replay against its recording
+
+Replay serves recorded outputs by step name. If your agent's control flow changes — a step skipped, a call added — a recorded output can be handed to the wrong call and every assertion can still pass. Turn on `CompareWithRecording` and the replay also fails when its sequence or inputs drift from the trace it's replaying:
+
+<CodeGroup>
+```csharp C#
+new ReplayOptions { MockLlmResponses = true, CompareWithRecording = new SnapshotOptions() }
+// result.RecordingDiff holds the details
+```
+
+```python Python
+ReplayOptions(mock_llm_responses=True, compare_with_recording=SnapshotOptions())
+# result.recording_diff holds the details
+```
+
+```javascript Node
+{ mock_llm_responses: true, compare_with_recording: {} }
+// result.recording_diff holds the details
+```
+</CodeGroup>
 
 ---
 
 ## Production monitoring
 
-Compare every live run against a pinned baseline:
+Compare live runs against the baseline and record every result in the dashboard, where each run shows expected and actual steps side by side:
 
 <CodeGroup>
 ```csharp C#
-// Load once at startup (or cache it)
-var golden = await veval.LoadSnapshotAsync("tr_9bc2024e84324464...");
+var baseline = await veval.GetSnapshotAsync("briefing-baseline");   // load once, cache it
 
-// In your agent run
 var result = await veval.RunAsync("my-agent", async ctx =>
 {
     var answer = await myService.ExecuteAsync(ctx);
-
-    // Compare step shape — posts result to dashboard
-    var diff = await veval.CompareSnapshotAsync("my-agent-snapshot", golden!, ctx);
-
-    if (diff.HasChanges)
-    {
-        // log, alert, or handle degradation
-        logger.LogWarning("Structural regression detected in my-agent");
-    }
-
+    var diff = await veval.CompareSnapshotAsync("briefing-baseline", baseline!, ctx);
+    if (diff.HasChanges) logger.LogWarning("{Report}", diff.Summary());
     return answer;
 });
 ```
 
 ```python Python
-# Load once at startup (or cache it)
-golden = await veval.load_snapshot_async("tr_9bc2024e84324464...")
+baseline = await veval.get_snapshot_async("briefing-baseline")   # load once, cache it
 
-# In your agent run
 async def my_agent(ctx):
     answer = await my_service.execute_async(ctx)
-
-    # Compare step shape — posts result to dashboard
-    diff = await veval.compare_snapshot_async("my-agent-snapshot", golden, ctx)
-
+    diff = await veval.compare_snapshot_async("briefing-baseline", baseline, ctx)
     if diff.has_changes:
-        # log, alert, or handle degradation
-        logger.warning("Structural regression detected in my-agent")
-
+        logger.warning(diff.summary())
     return answer
 
 result = await veval.run_async("my-agent", my_agent)
 ```
 
 ```javascript Node
-// Load once at startup (or cache it)
-const golden = await veval.loadSnapshotAsync("tr_9bc2024e84324464...");
+const baseline = await veval.getSnapshotAsync("briefing-baseline"); // load once, cache it
 
-// In your agent run
 const result = await veval.runAsync("my-agent", async (ctx) => {
   const answer = await myService.execute(ctx);
-
-  // Compare step shape — posts result to dashboard
-  const diff = await veval.compareSnapshotAsync("my-agent-snapshot", golden, ctx);
-
-  if (diff.has_changes) {
-    // log, alert, or handle degradation
-    console.warn("Structural regression detected in my-agent");
-  }
-
+  const diff = await veval.compareSnapshotAsync("briefing-baseline", baseline, ctx);
+  if (diff.has_changes) console.warn(diff.summary());
   return answer;
 });
 ```
 </CodeGroup>
 
+<Note>
+  In live runs, inputs built from live data (today's date, fetched records) differ from the baseline's. Use `IgnoreFields`, `IgnoreSteps`, or `Normalize` to leave those out, or compare only in replay where inputs are reproducible.
+</Note>
+
 ---
 
-## CI / integration tests
+## Options
 
-Use `VevalTestSdk` to run at zero LLM cost:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `CompareInputs` | `true` | Compare what the agent sent to each step |
+| `CompareOutputs` | `false` | Compare each step's output — turn on for deterministic steps |
+| `IgnoreSteps` | none | Step names left out of the comparison entirely |
+| `IgnoreFields` | none | JSON property names dropped from inputs/outputs at any depth (e.g. `timestamp`) |
+| `Normalize` | none | `(stepName, value) => value` rewrite applied before comparing |
 
-<CodeGroup>
-```csharp C#
-var trace  = await veval.GetTraceAsync("tr_4ec4e79c5d03...");
-var golden = await veval.LoadSnapshotAsync("tr_9bc2024e84324464...");
+Python uses snake_case (`compare_inputs`, `ignore_fields`, …); Node uses camelCase (`compareInputs`, `ignoreFields`, …).
 
-var testSdk = new VevalTestSdk(new VevalOptions { ApiKey = TestApiKey })
-    .WithReplay(trace);
-var service = new MyAgentService(testSdk, /* mock claude */);
-
-var replayResult = await testSdk.ReplayAsync(
-    trace,
-    service.ExecuteAsync,
-    new ReplayOptions { MockLlmResponses = true, Assertions = [] }
-);
-
-var diff = await veval.CompareSnapshotAsync(
-    "my-agent-snapshot",
-    golden!,
-    replayResult.ReplayedContext!
-);
-
-Assert.False(diff.HasChanges, $"Structural regression: {string.Join(", ", diff.RemovedSteps)}");
-```
-
-```python Python
-trace  = await veval.get_trace_async("tr_4ec4e79c5d03...")
-golden = await veval.load_snapshot_async("tr_9bc2024e84324464...")
-
-test_sdk = VevalTestSdk(VevalOptions(api_key=TEST_API_KEY)).with_replay(trace)
-service  = MyAgentService(test_sdk)
-
-replay_result = await test_sdk.replay_async(
-    trace,
-    service.execute_async,
-    ReplayOptions(mock_llm_responses=True, assertions=[]),
-)
-
-diff = await veval.compare_snapshot_async(
-    "my-agent-snapshot",
-    golden,
-    replay_result.replayed_context,
-)
-
-assert not diff.has_changes, f"Structural regression: {', '.join(diff.removed_steps)}"
-```
-
-```javascript Node
-const trace  = await veval.getTraceAsync("tr_4ec4e79c5d03...");
-const golden = await veval.loadSnapshotAsync("tr_9bc2024e84324464...");
-
-const testSdk = new VevalTestSdk({ apiKey: TEST_API_KEY }).withReplay(trace);
-const service  = new MyAgentService(testSdk);
-
-const replayResult = await testSdk.replayAsync(
-  trace,
-  (ctx) => service.execute(ctx),
-  { mock_llm_responses: true, assertions: [] }
-);
-
-const diff = await veval.compareSnapshotAsync(
-  "my-agent-snapshot",
-  golden,
-  replayResult.replayed_context
-);
-
-expect(diff.has_changes).toBe(false);
-```
-</CodeGroup>
+Values are compared structurally: key order doesn't matter, and a value loaded from the API compares equal to the same object built in your code.
 
 ---
 
@@ -172,56 +201,22 @@ expect(diff.has_changes).toBe(false);
 
 | Member | Description |
 |--------|-------------|
-| `HasChanges` | `true` if any difference was detected |
-| `AddedSteps` | Step names present in actual but not in the snapshot |
-| `RemovedSteps` | Step names present in snapshot but missing from actual |
-| `OrderChanges` | Steps that ran in a different position |
+| `HasChanges` | `true` if any difference was found |
+| `Changes` | Every change in run order: kind, step name, which call of that step, positions, and a line diff |
+| `Alignment` | Expected and actual steps side by side, in run order |
+| `Summary()` | A readable report of every change — made for test failure messages |
+| `AddedSteps` / `RemovedSteps` / `OrderChanges` | Name-level views, kept for existing code |
 
-<CodeGroup>
-```csharp C#
-if (diff.HasChanges)
-{
-    foreach (var step in diff.AddedSteps)
-        Console.WriteLine($"+ added:   {step}");
-    foreach (var step in diff.RemovedSteps)
-        Console.WriteLine($"- removed: {step}");
-    foreach (var change in diff.OrderChanges)
-        Console.WriteLine($"~ order:   {change}");
-}
-```
-
-```python Python
-if diff.has_changes:
-    for step in diff.added_steps:
-        print(f"+ added:   {step}")
-    for step in diff.removed_steps:
-        print(f"- removed: {step}")
-    for change in diff.order_changes:
-        print(f"~ order:   {change}")
-```
-
-```javascript Node
-if (diff.has_changes) {
-  for (const step of diff.added_steps)
-    console.log(`+ added:   ${step}`);
-  for (const step of diff.removed_steps)
-    console.log(`- removed: ${step}`);
-  for (const change of diff.order_changes)
-    console.log(`~ order:   ${change}`);
-}
-```
-</CodeGroup>
+<Note>
+  Baselines saved before step inputs were recorded (older snapshots) still load. They're compared on the step sequence only, and the summary says so. Save the baseline again to get input comparison.
+</Note>
 
 ---
 
-## Choosing a golden trace
+## Choosing a baseline
 
-Pick a trace that represents the expected "happy path" structure:
+Pick a run that represents the expected "happy path":
 
-- All expected steps completed successfully
-- No error steps
+- All expected steps completed successfully, with no error steps
 - Representative of typical production behavior
-
-<Note>
-  Update your golden trace whenever you intentionally change your agent's step structure. Leaving a stale baseline will cause false positives.
-</Note>
+- Recent — save a new baseline whenever you change the agent on purpose

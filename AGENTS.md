@@ -13,7 +13,7 @@
 - **Trace** — a recorded agent run (input, output, steps, cost, timing)
 - **Step** — a single LLM call or sub-operation within a trace
 - **Scenario** — a named set of test items run against your agent
-- **Snapshot** — the step structure of a known-good trace, used for regression detection
+- **Snapshot** — a stored known-good run (every step with its input and output), used to detect changed prompts/tool arguments and added, removed, or reordered steps
 - **Replay** — running an agent against a recorded trace with mocked LLM responses
 
 ## Style preferences
