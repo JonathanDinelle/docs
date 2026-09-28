@@ -1,0 +1,46 @@
+---
+title: "Replay"
+description: "Replay runs your agent against a recorded trace with mocked LLM responses."
+---
+
+Replay runs your real agent code, but each step returns the output recorded in a [trace](/concepts/traces) instead of calling the LLM. Tests built on replay are deterministic, fast, and free.
+
+## How replay fits in
+
+`VevalTestSdk` is a test double for `IVevalSdk`. Load a trace with `WithReplay`, inject the test SDK into your agent in place of the real one, and call it normally. When your agent calls `TrackStepAsync`, the test SDK returns the recorded output for that step name.
+
+Have your agent accept the `IVevalSdk` interface, not the concrete class, so your tests can swap in `VevalTestSdk`.
+
+Replay also powers trace-backed [scenario](/concepts/scenarios) items.
+
+## Strict mocking
+
+`VevalTestSdk` never falls through to the live LLM. If your agent calls `TrackStepAsync` with a step name that isn't in the recorded trace, it throws:
+
+```text
+InvalidOperationException: Replay mode: no mock output for step 'new_step'.
+Available steps: classify, answer.
+This would have made a real LLM call.
+```
+
+A code change that adds a new LLM call fails the test instead of quietly making real calls.
+
+## Guarding against drift
+
+Replay serves recorded outputs by step name. If your agent's control flow changes, a recorded output can be handed to the wrong call while every assertion still passes. Turn on `CompareWithRecording` in `ReplayOptions` and the replay also fails when its step sequence or inputs drift from the trace it's replaying.
+
+## Reporting
+
+`VevalTestSdk` still reports traces and scenario results to the dashboard, so replay runs count in your history.
+
+## Deep dives
+
+<CardGroup cols={2}>
+  <Card title="Test with replay" icon="rotate-left" href="/guides/replay">
+    Set up `VevalTestSdk` in your test project.
+  </Card>
+
+  <Card title="Snapshots" icon="code-compare" href="/concepts/snapshots">
+    Compare replays against a known-good baseline.
+  </Card>
+</CardGroup>

@@ -1,0 +1,53 @@
+---
+title: "Veval documentation"
+sidebarTitle: "Welcome"
+description: "Veval records every step of your AI agent and tests it against real production runs."
+mode: "wide"
+---
+
+Veval wraps your agent runs and LLM calls to record traces: inputs, outputs, step timing, token counts, and cost. You run scenarios and assertions against those traces in CI to catch regressions before they reach production.
+
+## Why use Veval
+
+* **Every step, recorded.** Each agent run becomes a trace with its steps, inputs, outputs, timing, tokens, and cost. Nested steps show as a tree in the dashboard.
+* **Tests without LLM calls.** Replay a recorded production trace with mocked LLM responses. Deterministic, fast, and free.
+* **Strict by default.** If your agent makes a call the recording doesn't have, replay throws instead of calling the live LLM.
+* **Regressions you can read.** Snapshots compare a run against a known-good baseline and report changed prompts, tool arguments, and added, removed, or moved steps, with a line diff.
+* **Built-in checks.** Assert on errors, step count, cost, duration, outputs, and tool calls, or grade outputs with an LLM judge.
+* **Three SDKs, one model.** C#, Python, and Node share the same concepts and method names.
+
+## Get started
+
+<Columns cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK and send your first trace.
+  </Card>
+
+  <Card title="Concepts" icon="compass" href="/concepts/overview">
+    Traces, steps, scenarios, assertions, replay, and snapshots.
+  </Card>
+
+  <Card title="SDK reference" icon="square-chevron-right" href="/llm-reference">
+    Every API in all three languages, on one page.
+  </Card>
+</Columns>
+
+## Explore
+
+<Columns cols={2}>
+  <Card title="How Veval works" icon="microchip" href="/how-veval-works">
+    How traces are recorded, and how replay turns them into tests.
+  </Card>
+
+  <Card title="Test with replay" icon="rotate-left" href="/guides/replay">
+    Run your agent against recorded traces with no live LLM calls.
+  </Card>
+
+  <Card title="Catch regressions" icon="code-compare" href="/guides/snapshots">
+    Compare runs against a stored known-good baseline.
+  </Card>
+
+  <Card title="Build with AI" icon="sparkles" href="/ai">
+    Ready-made context for building with AI coding agents.
+  </Card>
+</Columns>

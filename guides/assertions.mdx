@@ -1,13 +1,10 @@
 ---
-title: "Assertions"
+title: "Write assertions"
+sidebarTitle: "Assertions"
 description: "Built-in checks that validate agent behavior after every run."
 ---
 
-## Overview
-
-Assertions evaluate a completed `VevalExecutionContext` and return a failure message or `null` on pass. They can be attached to scenarios (applied to every item) or to individual `ScenarioItem`s.
-
----
+[Assertions](/concepts/assertions) evaluate a completed `VevalExecutionContext` and return a failure message or `null` on pass. You can attach them to [scenarios](/guides/scenarios) (applied to every item) or to individual `ScenarioItem`s.
 
 ## Built-in assertions
 
@@ -29,8 +26,6 @@ TraceAssert.noErrors()
 ```
 </CodeGroup>
 
----
-
 ### MaxSteps
 
 Fails if the total number of steps (including nested) exceeds the limit.
@@ -48,8 +43,6 @@ TraceAssert.max_steps(10)
 TraceAssert.maxSteps(10)
 ```
 </CodeGroup>
-
----
 
 ### MaxCost
 
@@ -69,8 +62,6 @@ TraceAssert.maxCost(0.10)   // $0.10 max
 ```
 </CodeGroup>
 
----
-
 ### MaxDuration
 
 Fails if the total step duration exceeds the limit in milliseconds.
@@ -88,8 +79,6 @@ TraceAssert.max_duration(5000)   # 5 seconds max
 TraceAssert.maxDuration(5000)   // 5 seconds max
 ```
 </CodeGroup>
-
----
 
 ### StepExists
 
@@ -112,8 +101,6 @@ TraceAssert.stepExists("answer")
 ```
 </CodeGroup>
 
----
-
 ### OutputContains
 
 Fails if no step's output contains the expected string.
@@ -132,8 +119,6 @@ TraceAssert.outputContains("summarized")
 ```
 </CodeGroup>
 
----
-
 ### ToolCalled
 
 Fails if no step with `type = "tool"` and the given name was recorded. Use `handle.SetMeta("type", "tool")` when recording tool steps.
@@ -151,8 +136,6 @@ TraceAssert.tool_called("web_search")
 TraceAssert.toolCalled("web_search")
 ```
 </CodeGroup>
-
----
 
 ### Judge
 
@@ -206,8 +189,6 @@ All options are optional:
 | `samples` | `1` | Runs this many independent gradings and takes the median score, to reduce single-call judge noise. Clamped server-side to 1–5. Each sample is billed separately, so cost scales with this value. |
 
 A judge call that fails outright (network error, provider error, invalid model) is treated as an assertion failure rather than a silent pass.
-
----
 
 ## Custom assertions
 
@@ -278,8 +259,6 @@ new OutputLengthAssertion(500),
 ```
 </CodeGroup>
 
----
-
 ## Scope: scenario vs. per-item
 
 <CodeGroup>
@@ -344,3 +323,15 @@ await veval.runScenarioAsync(
 );
 ```
 </CodeGroup>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Catch regressions with snapshots" icon="code-compare" href="/guides/snapshots">
+    Assert that a run matches a stored known-good baseline.
+  </Card>
+
+  <Card title="Run a scenario" icon="list-check" href="/guides/scenarios">
+    Apply assertions across many inputs.
+  </Card>
+</CardGroup>

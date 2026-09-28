@@ -1,0 +1,44 @@
+---
+title: "Assertions"
+description: "An assertion is a check that passes or fails a completed run."
+---
+
+An assertion inspects a completed run and returns `null` to pass or a failure message to fail. Veval ships built-in assertions for common checks, and you can write your own by implementing `ITraceAssertion`.
+
+## How assertions fit in
+
+You attach assertions to a [scenario](/concepts/scenarios), to a single scenario item, or to a [replay](/concepts/replay) through `ReplayOptions`. Failure messages are collected on the result, so a failing test tells you which check failed and why.
+
+## Built-in assertions
+
+| Assertion | Fails when |
+| - | - |
+| `NoErrors` | Any step completed with an error status. |
+| `MaxSteps` | The total number of steps, including nested steps, exceeds the limit. |
+| `MaxCost` | The total `cost_usd` across all steps exceeds the limit. |
+| `MaxDuration` | The total step duration exceeds the limit in milliseconds. |
+| `StepExists` | No step with the given name exists anywhere in the trace. |
+| `OutputContains` | No step's output contains the expected string. |
+| `ToolCalled` | No step with `type = "tool"` and the given name was recorded. |
+| `Judge` | An LLM judge, evaluated server-side, returns a failing verdict for the output. |
+| `MatchesSnapshot` | The run differs from a stored [snapshot](/concepts/snapshots), or the snapshot can't be loaded. |
+
+## Deterministic checks and the judge
+
+Most assertions are deterministic. They read the recorded steps and need no LLM call.
+
+`Judge` grades the output against a rubric you write, using an LLM. The score and reasoning are recorded on the run whether it passes or fails. A judge call that fails outright counts as an assertion failure, never a silent pass.
+
+In replay, model outputs are recorded, so a code or prompt change shows up in step inputs, not outputs. To check whether a change made outputs better or worse, run the judge against live runs.
+
+## Deep dives
+
+<CardGroup cols={2}>
+  <Card title="Write assertions" icon="circle-check" href="/guides/assertions">
+    Use the built-in assertions, configure the judge, and write your own.
+  </Card>
+
+  <Card title="Snapshots" icon="code-compare" href="/concepts/snapshots">
+    Compare runs against a known-good baseline.
+  </Card>
+</CardGroup>

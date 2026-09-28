@@ -1,17 +1,24 @@
 ---
-title: "Tracing"
+title: "Instrument your agent"
+sidebarTitle: "Tracing"
 description: "Record every step of your agent and ship it to the Veval dashboard."
 ---
 
-## How tracing works
+Every agent run is a [trace](/concepts/traces): a record of inputs, outputs, timing, cost, and the [steps](/concepts/steps) in between.
 
-Every agent run is a **trace** — a record of inputs, outputs, timing, cost, and the steps in between.
+<Steps>
+  <Step title="Wrap the run">
+    `RunAsync` starts a trace, runs your agent, then ships the trace to Veval.
+  </Step>
 
-1. `VevalSdk.RunAsync` starts a trace, runs your agent, then ships the payload to Veval.
-2. Your agent calls `ctx.TrackStepAsync` for each LLM call or sub-operation.
-3. The trace appears in your dashboard with full step detail.
+  <Step title="Track each step">
+    Your agent calls `ctx.TrackStepAsync` for each LLM call or sub-operation.
+  </Step>
 
----
+  <Step title="Open the dashboard">
+    The trace appears in your dashboard with full step detail.
+  </Step>
+</Steps>
 
 ## RunAsync
 
@@ -49,8 +56,6 @@ const result = await veval.runAsync(
 | `callback` | `Func<VevalExecutionContext, Task<T>>` | Your agent logic |
 | `input` | `object?` | Arbitrary input stored on the trace |
 
----
-
 ## VevalExecutionContext
 
 The context object passed into your agent. Do not instantiate directly — Veval creates it for you.
@@ -61,8 +66,6 @@ The context object passed into your agent. Do not instantiate directly — Veval
 | `Input` | The input passed to `RunAsync` |
 | `TrackStepAsync(...)` | Records a step |
 | `SetMetadata(key, value)` | Attaches trace-level metadata |
-
----
 
 ## TrackStepAsync
 
@@ -131,8 +134,6 @@ const answer = await ctx.trackStepAsync("answer", question, async (handle) => {
 ```
 </CodeGroup>
 
----
-
 ## StepHandle metadata keys
 
 `handle.SetMeta(key, value)` accepts these well-known keys, plus any custom string:
@@ -145,8 +146,6 @@ const answer = await ctx.trackStepAsync("answer", question, async (handle) => {
 | `cost_usd` | `decimal` | Cost in USD |
 | `type` | `string` | Step type — use `"tool"` for tool calls |
 | *(custom)* | `object` | Any other key stored in step metadata |
-
----
 
 ## Nested steps
 
@@ -198,8 +197,6 @@ const result = await ctx.trackStepAsync("pipeline", query, async (handle) => {
   Nested steps appear as a tree in the dashboard, letting you see exactly where time and cost are spent.
 </Note>
 
----
-
 ## Trace-level metadata
 
 Attach arbitrary key/value pairs to the whole trace (not a step):
@@ -223,3 +220,15 @@ ctx.setMetadata("session",  sessionId);
 ctx.setMetadata("region",   "us-east-1");
 ```
 </CodeGroup>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Test with replay" icon="rotate-left" href="/guides/replay">
+    Run your agent against recorded traces with no live LLM calls.
+  </Card>
+
+  <Card title="Run a scenario" icon="list-check" href="/guides/scenarios">
+    Run your agent against multiple inputs and assert on every result.
+  </Card>
+</CardGroup>
