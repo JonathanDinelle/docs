@@ -361,35 +361,45 @@ Pass `items: null` / omit `items` to fetch them from the dashboard by `scenarioN
 
 ## Snapshots
 
-Detect structural regressions by comparing step shape against a pinned golden trace.
+A snapshot is a stored known-good run: every step in order with its input and output. Comparing a run against it reports added, removed, and moved steps (including an extra call of a known step) and changed step inputs (prompts, tool arguments), each with a line diff. Saving by trace ID pins the trace, so baselines survive retention.
 
 ```csharp C#
-// load golden once at startup
-var golden = await veval.LoadSnapshotAsync("tr_golden...");
+// save once (or again, after an intentional change)
+await veval.SaveSnapshotAsync("briefing-baseline", "tr_golden...");
 
-// inside RunAsync callback, after your agent runs
-var diff = await veval.CompareSnapshotAsync("snapshot-name", golden!, ctx);
-if (diff.HasChanges) { /* alert */ }
+// in tests: an assertion like any other; missing baseline = failure
+TraceAssert.MatchesSnapshot(veval, "briefing-baseline")
+
+// guard a replay against its own recording (catches outputs bound to the wrong call)
+new ReplayOptions { MockLlmResponses = true, CompareWithRecording = new SnapshotOptions() }
+
+// production: compare and record the result in the dashboard
+var baseline = await veval.GetSnapshotAsync("briefing-baseline");
+var diff = await veval.CompareSnapshotAsync("briefing-baseline", baseline!, ctx);
+if (diff.HasChanges) logger.LogWarning(diff.Summary());
 ```
 
 ```python Python
-golden = await veval.load_snapshot_async("tr_golden...")
-
-# inside run_async callback, after your agent runs
-diff = await veval.compare_snapshot_async("snapshot-name", golden, ctx)
-if diff.has_changes:
-    pass  # alert
+await veval.save_snapshot_async("briefing-baseline", "tr_golden...")
+TraceAssert.matches_snapshot(veval, "briefing-baseline")
+ReplayOptions(mock_llm_responses=True, compare_with_recording=SnapshotOptions())
+baseline = await veval.get_snapshot_async("briefing-baseline")
+diff = await veval.compare_snapshot_async("briefing-baseline", baseline, ctx)
 ```
 
 ```javascript Node
-const golden = await veval.loadSnapshotAsync("tr_golden...");
-
-// inside runAsync callback, after your agent runs
-const diff = await veval.compareSnapshotAsync("snapshot-name", golden, ctx);
-if (diff.has_changes) { /* alert */ }
+await veval.saveSnapshotAsync("briefing-baseline", "tr_golden...");
+TraceAssert.matchesSnapshot(veval, "briefing-baseline");
+({ mock_llm_responses: true, compare_with_recording: {} });
+const baseline = await veval.getSnapshotAsync("briefing-baseline");
+const diff = await veval.compareSnapshotAsync("briefing-baseline", baseline, ctx);
 ```
 
-`SnapshotDiff` fields (same names in all SDKs): `has_changes` (bool), `added_steps` (string[]), `removed_steps` (string[]), `order_changes` (string[]).
+`SnapshotOptions`: `CompareInputs` (default true), `CompareOutputs` (default false), `IgnoreSteps`, `IgnoreFields` (JSON keys dropped at any depth), `Normalize` ((stepName, value) => value). Python snake_case, Node camelCase.
+
+`SnapshotDiff`: `has_changes`, `changes` (kind `Added`/`Removed`/`Moved`/`InputChanged`/`OutputChanged`, `step_name`, `occurrence`, positions, `detail` line diff), `alignment`, `summary()`, plus legacy `added_steps`, `removed_steps`, `order_changes`. C# uses PascalCase (`HasChanges`, `Changes`, `Summary()`).
+
+`LoadSnapshotAsync(traceId)` still builds a snapshot from a trace on the fly, but it isn't pinned — prefer `SaveSnapshotAsync`.
 
 ---
 
@@ -407,7 +417,9 @@ if (diff.has_changes) { /* alert */ }
 | Load replay | `WithReplay` | `with_replay` | `withReplay` |
 | Run replay | `ReplayAsync` | `replay_async` | `replayAsync` |
 | Run scenario | `RunScenarioAsync` | `run_scenario_async` | `runScenarioAsync` |
-| Load snapshot | `LoadSnapshotAsync` | `load_snapshot_async` | `loadSnapshotAsync` |
+| Save snapshot | `SaveSnapshotAsync` | `save_snapshot_async` | `saveSnapshotAsync` |
+| Get snapshot | `GetSnapshotAsync` | `get_snapshot_async` | `getSnapshotAsync` |
+| Snapshot assertion | `TraceAssert.MatchesSnapshot` | `TraceAssert.matches_snapshot` | `TraceAssert.matchesSnapshot` |
 | Compare snapshot | `CompareSnapshotAsync` | `compare_snapshot_async` | `compareSnapshotAsync` |
 | Assertion factory | `TraceAssert.NoErrors()` | `TraceAssert.no_errors()` | `TraceAssert.noErrors()` |
 | Context input | `ctx.Input` | `ctx.input` | `ctx.input` |

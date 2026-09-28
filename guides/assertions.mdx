@@ -154,6 +154,61 @@ TraceAssert.toolCalled("web_search")
 
 ---
 
+### Judge
+
+Scores the trace's output against a rubric using an LLM judge, evaluated server-side. Fails if the judge's `passed` verdict is `false`. The score and reasoning are recorded on the run whether the judge passes or fails.
+
+<CodeGroup>
+```csharp C#
+TraceAssert.Judge(veval, "The answer directly addresses the user's question and cites a source")
+
+TraceAssert.Judge(veval, "The response is polite and on-topic", new JudgeOptions
+{
+    Model = "claude-sonnet-5",       // must be in the provider's current model catalog
+    Threshold = 0.9,                 // stricter than the 0.7 default
+    ReferenceOutput = "A polite, on-topic answer that cites at least one source.",
+    Samples = 3,                     // median of 3 independent gradings, reduces judge noise
+})
+```
+
+```python Python
+TraceAssert.judge(veval, "The answer directly addresses the user's question and cites a source")
+
+TraceAssert.judge(
+    veval,
+    "The response is polite and on-topic",
+    model="claude-sonnet-5",
+    threshold=0.9,
+    reference_output="A polite, on-topic answer that cites at least one source.",
+    samples=3,
+)
+```
+
+```javascript Node
+TraceAssert.judge(veval, "The answer directly addresses the user's question and cites a source")
+
+TraceAssert.judge(veval, "The response is polite and on-topic", {
+  model: "claude-sonnet-5",
+  threshold: 0.9,
+  referenceOutput: "A polite, on-topic answer that cites at least one source.",
+  samples: 3,
+})
+```
+</CodeGroup>
+
+All options are optional:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `model` | account default | Must appear in the provider's live model catalog (fetched and cached server-side, ~1h TTL), or the call fails with a 400 rather than silently falling back — this keeps a caller from driving up spend with an arbitrary model. |
+| `threshold` | `0.7` | Pass/fail cutoff on the 0.0–1.0 score. Must be between 0.0 and 1.0. |
+| `referenceOutput` / `reference_output` | none | An example of an output that fully satisfies the rubric, included in the grading prompt to anchor the judge's scoring. |
+| `samples` | `1` | Runs this many independent gradings and takes the median score, to reduce single-call judge noise. Clamped server-side to 1–5. Each sample is billed separately, so cost scales with this value. |
+
+A judge call that fails outright (network error, provider error, invalid model) is treated as an assertion failure rather than a silent pass.
+
+---
+
 ## Custom assertions
 
 Implement `ITraceAssertion` to write your own:
