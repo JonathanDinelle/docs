@@ -24,7 +24,7 @@ Traces are the raw material for testing. A [scenario](/concepts/scenarios) item 
 | Timing | Start time, end time, and total duration. |
 | Total cost | The sum of `cost_usd` across all steps. |
 | Metadata | Key/value pairs you attach with `SetMetadata`. |
-| Steps | Every step recorded during the run, including nested steps. |
+| Steps | Every step recorded during the run, in order. |
 
 ## Status
 
@@ -41,7 +41,7 @@ The SDK sends the trace when the run finishes. Traces are ingested asynchronousl
 
 <CardGroup cols={2}>
   <Card title="Steps" icon="list-tree" href="/concepts/steps">
-    What a step records and how steps nest.
+    What a step records and how steps are matched.
   </Card>
 
   <Card title="Instrument your agent" icon="wave-pulse" href="/guides/tracing">

@@ -30,15 +30,11 @@ Give each step a stable name that describes what it does, like `classify` or `an
 
 See [StepHandle metadata keys](/guides/tracing#stephandle-metadata-keys) for the full list.
 
-## Nested steps
-
-A step can contain other steps. Call `TrackStepAsync` inside another step's callback and the inner step becomes its child. Nested steps appear as a tree in the dashboard, so you can see where time and cost are spent.
-
 ## Deep dives
 
 <CardGroup cols={2}>
   <Card title="Instrument your agent" icon="wave-pulse" href="/guides/tracing">
-    Record steps, attach metadata, and nest steps.
+    Record steps and attach metadata.
   </Card>
 
   <Card title="Traces" icon="route" href="/concepts/traces">
