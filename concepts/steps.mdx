@@ -1,0 +1,43 @@
+---
+title: "Steps"
+description: "A step is a single LLM call or sub-operation within a trace."
+---
+
+A step records one unit of work inside a [trace](/concepts/traces): usually an LLM call, a tool call, or a stage of your pipeline. You create a step by wrapping the work in `ctx.TrackStepAsync` with a name and an input.
+
+## How steps fit in
+
+Steps belong to a trace. The step name is how Veval matches steps across runs:
+
+* [Replay](/concepts/replay) serves recorded outputs by step name.
+* [Assertions](/concepts/assertions) like `StepExists` and `ToolCalled` look steps up by name.
+* [Snapshots](/concepts/snapshots) align steps by name and position to find what changed.
+
+Give each step a stable name that describes what it does, like `classify` or `answer`.
+
+## What a step records
+
+| Field | Description |
+| - | - |
+| Name | The name you pass to `TrackStepAsync`. |
+| Input | The input you pass to `TrackStepAsync`. |
+| Output | The value the step returned. |
+| Status | Whether the step completed or failed with an error. |
+| Duration | How long the step took. |
+| Model, tokens, cost | Set with `handle.SetMeta` using the `model`, `tokens_in`, `tokens_out`, and `cost_usd` keys. |
+| Type | Set with `handle.SetMeta("type", "tool")` to mark a tool call. |
+| Metadata | Any other key you set with `handle.SetMeta`. |
+
+See [StepHandle metadata keys](/guides/tracing#stephandle-metadata-keys) for the full list.
+
+## Deep dives
+
+<CardGroup cols={2}>
+  <Card title="Instrument your agent" icon="wave-pulse" href="/guides/tracing">
+    Record steps and attach metadata.
+  </Card>
+
+  <Card title="Traces" icon="route" href="/concepts/traces">
+    The run that steps belong to.
+  </Card>
+</CardGroup>

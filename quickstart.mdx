@@ -1,99 +1,104 @@
 ---
 title: "Quickstart"
-description: "Start sending traces to Veval in minutes."
+description: "Go from zero to your first trace in minutes."
 ---
 
-## Install
+Install the SDK, wrap your agent, and see every step in the dashboard.
 
-<CodeGroup>
-```bash C#
-dotnet add package Veval.Sdk
-```
+## Prerequisites
 
-```bash Python
-pip install veval-sdk
-```
+* A Veval account ([dashboard.veval.dev](https://dashboard.veval.dev))
+* A Veval API key. In the dashboard, go to **Settings** → **API Keys**.
 
-```bash Node
-npm install @veval/sdk
-```
-</CodeGroup>
+## Send your first trace
 
-## Get your API key
+<Steps>
+  <Step title="Install the SDK">
+    <CodeGroup>
+    ```bash C#
+    dotnet add package Veval.Sdk
+    ```
 
-Go to [dashboard.veval.dev](https://dashboard.veval.dev) → Settings → API Keys.
+    ```bash Python
+    pip install veval-sdk
+    ```
 
----
+    ```bash Node
+    npm install @veval/sdk
+    ```
+    </CodeGroup>
+  </Step>
 
-## Part 1: Minimal trace (no LLM required)
+  <Step title="Wrap a run">
+    The simplest integration needs no LLM. Wrap any async operation with `RunAsync` and record a step with `TrackStepAsync`.
 
-The simplest possible integration — wrap any async operation and it appears in your dashboard.
+    <CodeGroup>
+    ```csharp C#
+    using Veval.Sdk;
 
-<CodeGroup>
-```csharp C#
-using Veval.Sdk;
-
-var veval = new VevalSdk(new VevalOptions
-{
-    ApiKey   = "YOUR_API_KEY",
-    Endpoint = "https://api.veval.dev",
-});
-
-var result = await veval.RunAsync("my-agent", async ctx =>
-{
-    var output = await ctx.TrackStepAsync("summarize", input: "hello world", async () =>
+    var veval = new VevalSdk(new VevalOptions
     {
-        // replace with your real LLM call
-        return "Hello, world!";
+        ApiKey   = "YOUR_API_KEY",
+        Endpoint = "https://api.veval.dev",
     });
 
-    return output;
-});
+    var result = await veval.RunAsync("my-agent", async ctx =>
+    {
+        var output = await ctx.TrackStepAsync("summarize", input: "hello world", async () =>
+        {
+            // replace with your real LLM call
+            return "Hello, world!";
+        });
 
-veval.Dispose();
-```
+        return output;
+    });
 
-```python Python
-import asyncio
-from veval import VevalSdk, VevalOptions
+    veval.Dispose();
+    ```
 
-veval = VevalSdk(VevalOptions(api_key="YOUR_API_KEY"))
+    ```python Python
+    import asyncio
+    from veval import VevalSdk, VevalOptions
 
-async def main():
-    async def my_agent(ctx):
-        async def summarize():
-            # replace with your real LLM call
-            return "Hello, world!"
+    veval = VevalSdk(VevalOptions(api_key="YOUR_API_KEY"))
 
-        return await ctx.track_step_async("summarize", "hello world", summarize)
+    async def main():
+        async def my_agent(ctx):
+            async def summarize():
+                # replace with your real LLM call
+                return "Hello, world!"
 
-    result = await veval.run_async("my-agent", my_agent)
+            return await ctx.track_step_async("summarize", "hello world", summarize)
 
-asyncio.run(main())
-```
+        result = await veval.run_async("my-agent", my_agent)
 
-```javascript Node
-import { VevalSdk } from "@veval/sdk";
+    asyncio.run(main())
+    ```
 
-const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
+    ```javascript Node
+    import { VevalSdk } from "@veval/sdk";
 
-const result = await veval.runAsync("my-agent", async (ctx) => {
-  const output = await ctx.trackStepAsync("summarize", "hello world", async () => {
-    // replace with your real LLM call
-    return "Hello, world!";
-  });
-  return output;
-});
-```
-</CodeGroup>
+    const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
 
-That's it. Open your dashboard — you'll see a trace with one step.
+    const result = await veval.runAsync("my-agent", async (ctx) => {
+      const output = await ctx.trackStepAsync("summarize", "hello world", async () => {
+        // replace with your real LLM call
+        return "Hello, world!";
+      });
+      return output;
+    });
+    ```
+    </CodeGroup>
+  </Step>
 
----
+  <Step title="Open the dashboard">
+    Open [dashboard.veval.dev](https://dashboard.veval.dev). You'll see a trace for `my-agent` with one step.
+  </Step>
+</Steps>
 
-## Part 2: Service pattern (recommended for production)
+## Use the service pattern
 
-For real agents, pass the execution context into your service class so every LLM call is tracked automatically.
+For real agents, pass the execution context into your service class so every LLM call is tracked. This is the recommended pattern for production.
 
 <CodeGroup>
 ```csharp C#
@@ -186,3 +191,19 @@ const result = await veval.runAsync("my-agent", (ctx) => service.execute(ctx), u
 <Note>
   Injecting `IVevalSdk` (the interface) lets you swap in `VevalTestSdk` in tests — no live LLM calls, no API cost. See [Replay](/guides/replay).
 </Note>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Instrument your agent" icon="wave-pulse" href="/guides/tracing">
+    Record metadata and tool calls.
+  </Card>
+
+  <Card title="Test with replay" icon="rotate-left" href="/guides/replay">
+    Run your agent against recorded traces with no live LLM calls.
+  </Card>
+
+  <Card title="Run a scenario" icon="list-check" href="/guides/scenarios">
+    Run your agent against multiple inputs and assert on every result.
+  </Card>
+</CardGroup>

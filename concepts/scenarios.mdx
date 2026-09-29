@@ -1,0 +1,44 @@
+---
+title: "Scenarios"
+description: "A scenario is a named set of test items run against your agent."
+---
+
+A scenario runs your agent against a list of items and checks every result with [assertions](/concepts/assertions). Each run posts pass/fail results to the dashboard, so you can track quality over time.
+
+## How scenarios fit in
+
+You run a scenario with `RunScenarioAsync`, passing a scenario name, your agent, the assertions to apply to every item, and the items. Each item runs your agent once.
+
+Items can be defined in code or managed in the dashboard. If you don't pass items, Veval fetches them for the scenario by name, so you can change test cases without redeploying code.
+
+## Item types
+
+| Type | How it works | Cost |
+| - | - | - |
+| **Synthetic** | Runs a fresh input you define against the live LLM. | Real API cost |
+| **Trace-backed** | [Replays](/concepts/replay) a recorded trace with mocked LLM responses. | Zero |
+
+An item has either an `input` (synthetic) or a `trace_id` (trace-backed), not both. A trace-backed item's trace must have recorded steps. If it has none, Veval throws rather than silently calling the live LLM.
+
+## Assertion scope
+
+| Scope | Where you set it | Applies to |
+| - | - | - |
+| Scenario | `scenarioAssertions` | Every item |
+| Item | The item's `Assertions` | That item only, on top of the scenario assertions |
+
+## Results
+
+A scenario run returns whether every item passed, the pass and fail counts, and a result per item with its failure messages.
+
+## Deep dives
+
+<CardGroup cols={2}>
+  <Card title="Run a scenario" icon="list-check" href="/guides/scenarios">
+    Define items, apply assertions, and read results.
+  </Card>
+
+  <Card title="Assertions" icon="circle-check" href="/concepts/assertions">
+    The checks that pass or fail each item.
+  </Card>
+</CardGroup>

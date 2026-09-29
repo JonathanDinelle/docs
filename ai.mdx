@@ -1,0 +1,36 @@
+---
+title: "Build with AI"
+description: "Context for building Veval integrations with AI coding agents."
+---
+
+AI coding tools write better Veval integration code when they have the right context. The [SDK reference](/llm-reference) covers every API in C#, Python, and Node on a single page, so you can load it into your tool of choice in one step.
+
+## Load the SDK reference
+
+Open the [SDK reference](/llm-reference) and use the page menu at the top to copy it as Markdown, or open it directly in ChatGPT, Claude, Perplexity, Cursor, or VS Code.
+
+To load it in every session, paste it into your project's context file:
+
+| Tool | How to load |
+| - | - |
+| **Cursor** | Add to your [project rules](https://cursor.com/docs/context/rules) in `.cursor/rules/` |
+| **Claude Code** | Add to your `CLAUDE.md` file in the project root |
+| **Codex** | Add to your `AGENTS.md` file in the project root |
+| **GitHub Copilot** | Save to `.github/copilot-instructions.md` |
+| **Other** | Paste into your tool's system prompt or project context |
+
+## Documentation index
+
+The full list of pages is available at [docs.veval.dev/llms.txt](https://docs.veval.dev/llms.txt). Point your agent at it to discover pages before reading them.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="SDK reference" icon="square-chevron-right" href="/llm-reference">
+    Every API in all three languages, on one page.
+  </Card>
+
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK and send your first trace.
+  </Card>
+</CardGroup>

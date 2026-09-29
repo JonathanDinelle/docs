@@ -1,11 +1,10 @@
 ---
-title: "Scenarios"
+title: "Run a scenario"
+sidebarTitle: "Scenarios"
 description: "Run your agent against multiple inputs and assert on every result."
 ---
 
-## What is a scenario?
-
-A scenario is a named set of test cases for your agent. Each run posts pass/fail results to the dashboard so you can track quality over time.
+A [scenario](/concepts/scenarios) is a named set of test cases for your agent. Each run posts pass/fail results to the dashboard so you can track quality over time.
 
 Scenarios have two item types:
 
@@ -13,8 +12,6 @@ Scenarios have two item types:
 |------|-------------|------|
 | **Synthetic** | Live LLM, fresh input you define | Real API cost |
 | **Trace-backed** | Mocked LLM, replays a recorded production trace | Zero |
-
----
 
 ## RunScenarioAsync
 
@@ -75,8 +72,6 @@ const result = await veval.runScenarioAsync(
 | `scenarioAssertions` | Assertions that apply to every item |
 | `items` | List of `ScenarioItem` — inline or fetched from dashboard |
 
----
-
 ## Synthetic items
 
 Use these for new inputs you want to test with a live LLM.
@@ -101,8 +96,6 @@ ScenarioItem(
 { name: "prompt caching question", input: "Explain prompt caching in one sentence.", assertions: [] }
 ```
 </CodeGroup>
-
----
 
 ## Trace-backed items
 
@@ -139,8 +132,6 @@ ScenarioItem(
   The trace must have recorded steps. If it has none, Veval throws rather than silently calling the live LLM.
 </Note>
 
----
-
 ## Per-item assertions
 
 Each `ScenarioItem` can carry its own assertions on top of the scenario-level ones:
@@ -171,8 +162,6 @@ ScenarioItem(
 }
 ```
 </CodeGroup>
-
----
 
 ## Fetching items from the dashboard
 
@@ -206,8 +195,6 @@ const result = await veval.runScenarioAsync(
 );
 ```
 </CodeGroup>
-
----
 
 ## ScenarioRunResult
 
@@ -249,3 +236,15 @@ for (const item of result.results) {
 | `PassCount` | Number of passing items |
 | `FailCount` | Number of failing items |
 | `Results` | List of `ItemRunResult` |
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Write assertions" icon="circle-check" href="/guides/assertions">
+    Built-in checks, the LLM judge, and custom assertions.
+  </Card>
+
+  <Card title="Test with replay" icon="rotate-left" href="/guides/replay">
+    Run your agent against recorded traces in tests.
+  </Card>
+</CardGroup>

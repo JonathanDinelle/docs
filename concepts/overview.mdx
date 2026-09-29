@@ -1,0 +1,35 @@
+---
+title: "Concepts"
+sidebarTitle: "Overview"
+description: "The building blocks of every Veval integration."
+---
+
+Veval records what your agent does and tests it against those recordings. You work with a small set of objects: traces record a run, steps record the calls inside it, and scenarios, assertions, replay, and snapshots turn recordings into tests.
+
+## Core concepts
+
+<CardGroup cols={2}>
+  <Card title="Traces" icon="route" href="/concepts/traces">
+    A recorded agent run: input, output, steps, cost, and timing.
+  </Card>
+
+  <Card title="Steps" icon="list-tree" href="/concepts/steps">
+    A single LLM call or sub-operation within a trace.
+  </Card>
+
+  <Card title="Scenarios" icon="list-check" href="/concepts/scenarios">
+    A named set of test items run against your agent.
+  </Card>
+
+  <Card title="Assertions" icon="circle-check" href="/concepts/assertions">
+    Checks that pass or fail a completed run.
+  </Card>
+
+  <Card title="Replay" icon="rotate-left" href="/concepts/replay">
+    Run your agent against a recorded trace with mocked LLM responses.
+  </Card>
+
+  <Card title="Snapshots" icon="code-compare" href="/concepts/snapshots">
+    A stored known-good run that new runs are compared against.
+  </Card>
+</CardGroup>

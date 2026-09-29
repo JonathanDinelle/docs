@@ -1,15 +1,12 @@
 ---
-title: "Replay"
-description: "Run your agent against recorded traces in unit and integration tests — no live LLM calls."
+title: "Test with replay"
+sidebarTitle: "Replay"
+description: "Run your agent against recorded traces in your tests, with no live LLM calls."
 ---
 
-## Overview
-
-`VevalTestSdk` is a test double for `IVevalSdk`. It replays a recorded trace so your agent code runs with mocked LLM responses — deterministic, fast, and free.
+`VevalTestSdk` is a test double for `IVevalSdk`. It [replays](/concepts/replay) a recorded trace so your agent code runs with mocked LLM responses: deterministic, fast, and free.
 
 Unlike calling `VevalSdk` directly with a trace, `VevalTestSdk` guarantees no live LLM fallthrough. If a step name doesn't match the recorded trace, it throws immediately.
-
----
 
 ## Setup
 
@@ -61,8 +58,6 @@ const result = await testSdk.runAsync("my-agent", (ctx) => service.execute(ctx))
 <Note>
   `VevalTestSdk` still reports traces and scenario results to the dashboard, so runs count in your history.
 </Note>
-
----
 
 ## In a test project
 
@@ -116,8 +111,6 @@ test("agent returns expected output", async () => {
 ```
 </CodeGroup>
 
----
-
 ## Strict mock mode
 
 If your agent calls `TrackStepAsync` with a step name that isn't in the recorded trace, `VevalTestSdk` throws:
@@ -129,8 +122,6 @@ This would have made a real LLM call.
 ```
 
 This catches regressions where code changes add new LLM calls that weren't in the original trace.
-
----
 
 ## ReplayAsync directly
 
@@ -205,8 +196,6 @@ for (const f of replayResult.failures)
 | `Status` | `"success"` or `"error"` |
 | `Error` | Exception message if status is `"error"` |
 
----
-
 ## LastStatus / LastError
 
 After `RunAsync`, inspect the outcome without catching exceptions:
@@ -233,3 +222,15 @@ expect(testSdk.lastStatus).toBe("success");
 expect(testSdk.lastError).toBeNull();
 ```
 </CodeGroup>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Catch regressions with snapshots" icon="code-compare" href="/guides/snapshots">
+    Fail a replay when prompts or steps change.
+  </Card>
+
+  <Card title="Write assertions" icon="circle-check" href="/guides/assertions">
+    Check cost, steps, outputs, and tool calls.
+  </Card>
+</CardGroup>

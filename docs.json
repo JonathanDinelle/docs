@@ -1,47 +1,73 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Veval",
+  "name": "Veval Docs",
+  "description": "Trace, test, and catch regressions in your AI agents.",
   "colors": {
-    "primary": "#6366f1",
-    "light": "#818cf8",
-    "dark": "#4f46e5"
+    "primary": "#0b8fb0",
+    "light": "#3fe0fb",
+    "dark": "#0b8fb0"
   },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "groups": [
-      {
-        "group": "Getting Started",
-        "pages": ["quickstart"]
-      },
-      {
-        "group": "Guides",
-        "pages": [
-          "guides/tracing",
-          "guides/scenarios",
-          "guides/assertions",
-          "guides/replay",
-          "guides/snapshots"
-        ]
-      },
-      {
-        "group": "Reference",
-        "pages": ["llm-reference"]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Dashboard",
-          "href": "https://dashboard.veval.dev",
-          "icon": "chart-line"
-        }
-      ]
+  "background": {
+    "color": {
+      "light": "#f6f5f1",
+      "dark": "#060b1c"
     }
   },
+  "fonts": {
+    "heading": {
+      "family": "Inter Tight",
+      "weight": 600
+    },
+    "body": {
+      "family": "Inter",
+      "weight": 400
+    }
+  },
+  "favicon": "/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["index", "how-veval-works"]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/traces",
+              "concepts/steps",
+              "concepts/scenarios",
+              "concepts/assertions",
+              "concepts/replay",
+              "concepts/snapshots"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "quickstart",
+              "guides/tracing",
+              "guides/scenarios",
+              "guides/assertions",
+              "guides/replay",
+              "guides/snapshots"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": ["llm-reference", "ai"]
+          }
+        ]
+      }
+    ]
   },
   "navbar": {
     "primary": {
@@ -51,15 +77,10 @@
     }
   },
   "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"],
+    "display": "header"
+  },
+  "styling": {
+    "codeblocks": "system"
   }
 }

@@ -8,6 +8,13 @@
 - Run `mint dev` to preview locally
 - Run `mint broken-links` to check links
 
+## Structure
+
+- `concepts/` pages explain what something is: a one-line definition, "How X fits in", reference tables, and "Deep dives" cards. No long code samples.
+- `guides/` pages and `quickstart.mdx` show how to do something, with code in all three languages. End each with "What's next" cards.
+- `llm-reference.mdx` is the single-page SDK reference, also used as AI context.
+- No `---` rules between sections. Use `<Steps>` for sequential instructions.
+
 ## Terminology
 
 - **Trace** — a recorded agent run (input, output, steps, cost, timing)

@@ -1,0 +1,43 @@
+---
+title: "Snapshots"
+description: "A snapshot is a stored known-good run that new runs are compared against."
+---
+
+A snapshot stores every step of a known-good run, in order, with the input your agent sent to each step and the output it got back. Comparing a new run against it shows exactly what your agent now does differently.
+
+## How snapshots fit in
+
+You save a snapshot under a name, from a trace ID or from a run you just executed. The snapshot is stored self-contained, and its source trace is pinned, so neither is removed by trace retention. Saving again under the same name replaces the baseline.
+
+You then compare runs against it:
+
+* In tests, with the `MatchesSnapshot` [assertion](/concepts/assertions). A missing baseline fails the assertion.
+* In production, with `CompareSnapshotAsync`. Each result is recorded in the dashboard, with expected and actual steps side by side.
+
+## What a comparison reports
+
+| Change | Example |
+| - | - |
+| **Input changed** | The system prompt was edited, or a tool now gets different arguments. |
+| **Added** | A new step ran, or a known step ran again. |
+| **Removed** | A step stopped running. |
+| **Moved** | A step ran at a different point in the sequence. |
+| **Output changed** | Only when you turn on `CompareOutputs`. Use it for deterministic steps. |
+
+Every change comes with its position and, for input and output changes, a line diff.
+
+## Snapshots and replay
+
+In a [replay](/concepts/replay), model outputs are recorded, so step inputs are where a code or prompt change shows up. A snapshot catches that change with no LLM call. Whether the change made outputs better or worse is a question for a live `Judge` run.
+
+## Deep dives
+
+<CardGroup cols={2}>
+  <Card title="Catch regressions with snapshots" icon="code-compare" href="/guides/snapshots">
+    Save a baseline, check runs in tests, and monitor production.
+  </Card>
+
+  <Card title="Replay" icon="rotate-left" href="/concepts/replay">
+    Run your agent against recorded traces.
+  </Card>
+</CardGroup>

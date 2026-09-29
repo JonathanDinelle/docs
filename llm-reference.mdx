@@ -1,15 +1,15 @@
 ---
-title: "LLM Reference"
-description: "Complete Veval SDK reference for AI coding agents. Single-page context drop — all three languages, all APIs."
+title: "SDK reference"
+description: "Every Veval SDK API in C#, Python, and Node, on one page."
 ---
+
+This page covers every SDK API in all three languages. It's also built as a single-page context drop for AI coding agents. See [Build with AI](/ai).
 
 ## What Veval does
 
 Veval wraps your agent runs and LLM calls to record traces: inputs, outputs, step timing, token counts, and cost. Traces appear in the dashboard. You run scenarios and assertions against them in CI to catch regressions before they reach production.
 
 Three SDKs, same concept: **C#** (`Veval.Sdk`), **Python** (`veval`), **Node** (`@veval/sdk`).
-
----
 
 ## Install
 
@@ -23,8 +23,6 @@ pip install veval-sdk
 # Node
 npm install @veval/sdk
 ```
-
----
 
 ## Initialize
 
@@ -45,8 +43,6 @@ import { VevalSdk } from "@veval/sdk";
 
 const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
 ```
-
----
 
 ## Core API
 
@@ -74,8 +70,6 @@ const result = await veval.runAsync("agent-name", async (ctx) => {
 ```
 
 Sends a trace on both success and error. The `ctx` object is a `VevalExecutionContext`.
-
----
 
 ### TrackStepAsync — record one LLM call or sub-operation
 
@@ -149,8 +143,6 @@ const output = await ctx.trackStepAsync("step-name", text, async (handle) => {
 | `type` | string | Use `"tool"` for tool-call steps |
 | *(any other key)* | any | Stored in `step.metadata` dict |
 
----
-
 ### Nested steps
 
 Pass the parent handle's context to nest steps in the dashboard tree:
@@ -181,8 +173,6 @@ const result = await ctx.trackStepAsync("pipeline", query, async (handle) => {
 });
 ```
 
----
-
 ### Trace-level metadata
 
 ```csharp C#
@@ -199,8 +189,6 @@ ctx.set_metadata("region",  "us-east-1")
 ctx.setMetadata("user_id", userId);
 ctx.setMetadata("region",  "us-east-1");
 ```
-
----
 
 ## Replay / Test SDK
 
@@ -259,8 +247,6 @@ const r = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx),
 // r.failures, r.replayed_context, r.output, r.status, r.error
 ```
 
----
-
 ## Assertions
 
 All assertions implement `ITraceAssertion`. They return `null` on pass or a failure string.
@@ -276,6 +262,7 @@ All assertions implement `ITraceAssertion`. They return `null` on pass or a fail
 | `TraceAssert.StepExists("name")` | `TraceAssert.step_exists("name")` | `TraceAssert.stepExists("name")` | Fail if named step not found |
 | `TraceAssert.OutputContains("s")` | `TraceAssert.output_contains("s")` | `TraceAssert.outputContains("s")` | Fail if no step output contains s |
 | `TraceAssert.ToolCalled("name")` | `TraceAssert.tool_called("name")` | `TraceAssert.toolCalled("name")` | Fail if no tool step with that name |
+| `TraceAssert.Judge(veval, "rubric")` | `TraceAssert.judge(veval, "rubric")` | `TraceAssert.judge(veval, "rubric")` | Fail if the LLM judge's verdict is not passed |
 
 **Custom assertion:**
 
@@ -307,8 +294,6 @@ class MyAssertion {
   }
 }
 ```
-
----
 
 ## Scenarios
 
@@ -357,8 +342,6 @@ const result = await veval.runScenarioAsync(
 
 Pass `items: null` / omit `items` to fetch them from the dashboard by `scenarioName`.
 
----
-
 ## Snapshots
 
 A snapshot is a stored known-good run: every step in order with its input and output. Comparing a run against it reports added, removed, and moved steps (including an extra call of a known step) and changed step inputs (prompts, tool arguments), each with a line diff. Saving by trace ID pins the trace, so baselines survive retention.
@@ -400,8 +383,6 @@ const diff = await veval.compareSnapshotAsync("briefing-baseline", baseline, ctx
 `SnapshotDiff`: `has_changes`, `changes` (kind `Added`/`Removed`/`Moved`/`InputChanged`/`OutputChanged`, `step_name`, `occurrence`, positions, `detail` line diff), `alignment`, `summary()`, plus legacy `added_steps`, `removed_steps`, `order_changes`. C# uses PascalCase (`HasChanges`, `Changes`, `Summary()`).
 
 `LoadSnapshotAsync(traceId)` still builds a snapshot from a trace on the fly, but it isn't pinned — prefer `SaveSnapshotAsync`.
-
----
 
 ## Naming convention cheat sheet
 
