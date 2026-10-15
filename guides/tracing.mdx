@@ -97,6 +97,8 @@ const veval = new VevalSdk({ apiKey: "YOUR_API_KEY", throwOnSendFailure: true })
 
 If your agent throws, you get your agent's exception, not the send failure. The send failure is still logged.
 
+In a scenario, a trace that can't be stored doesn't stop the remaining items. Every item runs, the scenario run is posted, and then strict mode throws once for the lost traces.
+
 ## VevalExecutionContext
 
 The context object passed into your agent. Do not instantiate directly — Veval creates it for you.

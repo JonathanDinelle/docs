@@ -59,7 +59,7 @@ The SDK never throws because Veval is unreachable or rejects a trace, unless str
 - Python: the `veval` logger at `WARNING`
 - Node: `console.warn`
 
-With `ThrowOnSendFailure` / `raise_on_send_failure` / `throwOnSendFailure` on, the send throws `VevalSendException` (C#, `StatusCode`) or `VevalSendError` (Python and Node, `status`). The status is null when there was no response. If the agent itself threw, its exception wins and the send failure is only logged.
+With `ThrowOnSendFailure` / `raise_on_send_failure` / `throwOnSendFailure` on, the send throws `VevalSendException` (C#, `StatusCode`) or `VevalSendError` (Python and Node, `status`). The status is null when there was no response. If the agent itself threw, its exception wins and the send failure is only logged. In a scenario, every item runs and the run is posted before strict mode throws for any item traces that couldn't be stored.
 
 If traces don't appear in the dashboard, look for these warnings first.
 
