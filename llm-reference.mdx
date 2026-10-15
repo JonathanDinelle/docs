@@ -44,6 +44,25 @@ import { VevalSdk } from "@veval/sdk";
 const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
 ```
 
+### Options
+
+| C# | Python | Node | Default | Meaning |
+|----|--------|------|---------|---------|
+| `ApiKey` | `api_key` | `apiKey` | — | Your API key. It also selects the workspace. |
+| `ThrowOnSendFailure` | `raise_on_send_failure` | `throwOnSendFailure` | `false` | Throw when a trace or scenario run can't be stored. Turn it on in tests and CI. |
+
+### Delivery failures
+
+The SDK never throws because Veval is unreachable or rejects a trace, unless strict mode is on. A rejected or failed send (401 wrong API key, 429 quota used up, network error) logs a warning that names the status and, when the API gives one, the reason:
+
+- C#: standard error
+- Python: the `veval` logger at `WARNING`
+- Node: `console.warn`
+
+With `ThrowOnSendFailure` / `raise_on_send_failure` / `throwOnSendFailure` on, the send throws `VevalSendException` (C#, `StatusCode`) or `VevalSendError` (Python and Node, `status`). The status is null when there was no response. If the agent itself threw, its exception wins and the send failure is only logged.
+
+If traces don't appear in the dashboard, look for these warnings first.
+
 ## Core API
 
 ### RunAsync — wrap a complete agent run
@@ -391,6 +410,8 @@ const diff = await veval.compareSnapshotAsync("briefing-baseline", baseline, ctx
 | SDK class | `VevalSdk` | `VevalSdk` | `VevalSdk` |
 | Test SDK | `VevalTestSdk` | `VevalTestSdk` | `VevalTestSdk` |
 | Options | `VevalOptions { ApiKey }` | `VevalOptions(api_key=)` | `{ apiKey: }` |
+| Strict sends | `ThrowOnSendFailure` | `raise_on_send_failure` | `throwOnSendFailure` |
+| Send failure | `VevalSendException` | `VevalSendError` | `VevalSendError` |
 | Run agent | `RunAsync` | `run_async` | `runAsync` |
 | Record step | `TrackStepAsync` | `track_step_async` | `trackStepAsync` |
 | Trace metadata | `SetMetadata` | `set_metadata` | `setMetadata` |
