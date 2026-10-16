@@ -131,6 +131,14 @@ ScenarioItem(
   The trace must have recorded steps. If it has none, Veval throws rather than silently calling the live LLM.
 </Note>
 
+### Keeping the trace
+
+Traces are deleted after your plan's retention window. Each time a scenario replays a trace, its retention restarts, so a trace your tests replay at least once per window stays.
+
+To keep a trace no matter how often it runs, open it in the dashboard and click **Use as fixture**. This pins the trace and shows the `ScenarioItem` for it in each language, ready to copy. **Pin** on its own keeps the trace without showing the item. Each plan allows a set number of pinned traces (25 on Free); unpin one to free a slot.
+
+If the trace is gone, the item fails with `trace '<id>' not found` and the scenario's other items still run.
+
 ## Per-item assertions
 
 Each `ScenarioItem` can carry its own assertions on top of the scenario-level ones:

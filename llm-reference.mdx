@@ -363,6 +363,8 @@ const result = await veval.runScenarioAsync(
 
 `ScenarioItem` fields: `name` (string), `input` (any), `trace_id` (string) — provide either `input` (live LLM) or `trace_id` (mocked replay), not both. `assertions` is always an array (can be empty).
 
+A trace-backed item's trace follows the plan's retention window, which restarts each time the trace is replayed. Pinning the trace in the dashboard (**Use as fixture** or **Pin** on the trace page) keeps it indefinitely, up to the plan's pinned-trace limit (Free 25, Starter 100, Growth 500, Pro 2,000). If the trace no longer exists, that item fails with `trace '<id>' not found` and the other items still run.
+
 Pass `items: null` / omit `items` to fetch them from the dashboard by `scenarioName`.
 
 ## Snapshots
