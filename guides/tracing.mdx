@@ -55,6 +55,56 @@ const result = await veval.runAsync(
 | `callback` | `Func<VevalExecutionContext, Task<T>>` | Your agent logic |
 | `input` | `object?` | Arbitrary input stored on the trace |
 
+## Delivery failures
+
+Tracing never breaks your app. If Veval can't store a trace (wrong API key, quota used up, network down), the SDK logs a warning and your agent's result comes back as usual. The warning names the HTTP status and, when the API gives one, the reason:
+
+```text
+Veval: Sending trace failed with status 429: {"error":"Trace quota exceeded"}
+```
+
+Each SDK logs it in that language's usual place:
+
+| SDK | Where the warning goes |
+|-----|------------------------|
+| C# | Standard error |
+| Python | The `veval` logger, at `WARNING` level. With no logging set up, Python prints it to standard error. If your app raises the log level above `WARNING` or silences library loggers, re-enable `veval` to see it. |
+| Node | `console.warn` |
+
+Posting a scenario run or a snapshot comparison to the dashboard fails the same way: a warning, and no exception unless strict mode is on.
+
+This only covers sending results. Calls that return something you asked for throw when they fail, whether or not strict mode is on. That includes `SaveSnapshotAsync`, `GetSnapshotAsync`, `JudgeAsync` and `GetTraceAsync`. It also includes `RunScenarioAsync` when it loads a scenario's items or a saved trace to replay.
+
+Loading a trace or a scenario's items throws `VevalRequestException` (C#) or `VevalRequestError` (Python, Node). Like the send error, it carries the HTTP status, or null when there was no response. `GetTraceAsync` returns null only when the trace doesn't exist. A scenario whose items can't be loaded throws instead of running zero items and passing.
+
+### Throw in tests and CI
+
+In a test suite, a run that never reached the dashboard should fail the build. Turn on strict mode and a failed send throws `VevalSendException` (C#) or `VevalSendError` (Python, Node). The exception carries the HTTP status (`StatusCode` in C#, `status` in Python and Node). The status is null when the request got no response, and on the single error a scenario throws for lost item traces (see below).
+
+<CodeGroup>
+```csharp C#
+var veval = new VevalSdk(new VevalOptions
+{
+    ApiKey             = "YOUR_API_KEY",
+    ThrowOnSendFailure = true,
+});
+```
+
+```python Python
+veval = VevalSdk(VevalOptions(api_key="YOUR_API_KEY", raise_on_send_failure=True))
+```
+
+```javascript Node
+const veval = new VevalSdk({ apiKey: "YOUR_API_KEY", throwOnSendFailure: true });
+```
+</CodeGroup>
+
+If your agent throws, you get your agent's exception, not the send failure. The send failure is still logged.
+
+With strict mode on, `CompareSnapshotAsync` throws if it can't post the comparison, so you don't get the diff back. The comparison itself ran; only reporting it failed.
+
+In a scenario, a trace that can't be stored doesn't stop the remaining items. Every item runs, then the scenario run is posted. If posting the run fails, strict mode throws that failure. Otherwise, if any item traces were lost, it throws once for all of them: `Veval: 3 trace(s) from scenario 'my-scenario' could not be stored`. That error has no status; the warnings logged for each item have the details.
+
 ## VevalExecutionContext
 
 The context object passed into your agent. Do not instantiate directly — Veval creates it for you.

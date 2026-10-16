@@ -36,11 +36,7 @@ Install the SDK, wrap your agent, and see every step in the dashboard.
     ```csharp C#
     using Veval.Sdk;
 
-    var veval = new VevalSdk(new VevalOptions
-    {
-        ApiKey   = "YOUR_API_KEY",
-        Endpoint = "https://api.veval.dev",
-    });
+    var veval = new VevalSdk(new VevalOptions { ApiKey = "YOUR_API_KEY" });
 
     var result = await veval.RunAsync("my-agent", async ctx =>
     {
@@ -93,6 +89,10 @@ Install the SDK, wrap your agent, and see every step in the dashboard.
 
   <Step title="Open the dashboard">
     Open [dashboard.veval.dev](https://dashboard.veval.dev). You'll see a trace for `my-agent` with one step.
+
+    <Note>
+    No trace in the dashboard? Look for a `Veval: Sending trace failed` warning in your console, such as status `401` for a wrong API key or `429` when your quota is used up. See [Delivery failures](/guides/tracing#delivery-failures).
+    </Note>
   </Step>
 </Steps>
 
