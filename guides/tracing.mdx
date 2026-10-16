@@ -55,6 +55,24 @@ const result = await veval.runAsync(
 | `callback` | `Func<VevalExecutionContext, Task<T>>` | Your agent logic |
 | `input` | `object?` | Arbitrary input stored on the trace |
 
+## Synchronous Python agents
+
+If your Python agent is plain synchronous code, use `run` and `track_step`. They take ordinary functions and don't start an event loop, so they're safe to call from any thread or web framework. C# and Node agents use the async API.
+
+```python Python
+def answer(ctx):
+    def call_model(handle):
+        response = anthropic.messages.create(...)
+        handle.set_meta("type", "llm")
+        return response.content[0].text
+
+    return ctx.track_step("answer", ctx.input, call_model)
+
+result = veval.run("my-agent", answer, user_message)
+```
+
+Tests can stay synchronous too: `get_trace`, `replay` and `run_scenario` mirror their `_async` counterparts. Call them from synchronous code; inside a running event loop, await the `_async` versions instead. The async methods also accept a plain function as the agent.
+
 ## Delivery failures
 
 Tracing never breaks your app. If Veval can't store a trace (wrong API key, quota used up, network down), the SDK logs a warning and your agent's result comes back as usual. The warning names the HTTP status and, when the API gives one, the reason:

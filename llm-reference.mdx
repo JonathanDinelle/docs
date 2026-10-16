@@ -83,6 +83,10 @@ var result = await veval.RunAsync("agent-name", async ctx =>
 result = await veval.run_async("agent-name", my_agent, user_message)
 # my_agent is async def my_agent(ctx): ...
 # input is optional (positional or keyword)
+
+# Synchronous agent: plain functions, no event loop
+result = veval.run("agent-name", my_sync_agent, user_message)
+# inside it: ctx.track_step("step-name", text, lambda: call_model(text))
 ```
 
 ```javascript Node
@@ -93,6 +97,8 @@ const result = await veval.runAsync("agent-name", async (ctx) => {
 ```
 
 Sends a trace on both success and error. The `ctx` object is a `VevalExecutionContext`.
+
+Python also has synchronous `run`, `track_step`, `get_trace`, `replay` and `run_scenario` for agents written as plain functions. Call them from synchronous code; inside a running event loop, use the `_async` versions.
 
 ### TrackStepAsync — record one LLM call or sub-operation
 
@@ -270,6 +276,8 @@ const r = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx),
 // r.failures, r.replayed_context, r.output, r.status, r.error
 ```
 
+`ctx.IsReplay` (`is_replay`, `isReplay`) is true while a recorded trace is replayed (any mode, scenario trace-backed items, `WithReplay`). Only steps are served from the recording; check it before side effects outside a step, such as sending an email.
+
 ## Assertions
 
 All assertions implement `ITraceAssertion`. They return `null` on pass or a failure string.
@@ -420,6 +428,8 @@ const diff = await veval.compareSnapshotAsync("briefing-baseline", baseline, ctx
 | Send failure | `VevalSendException` | `VevalSendError` | `VevalSendError` |
 | Run agent | `RunAsync` | `run_async` | `runAsync` |
 | Record step | `TrackStepAsync` | `track_step_async` | `trackStepAsync` |
+| Sync run / step (Python only) | — | `run` / `track_step` | — |
+| Replay check | `ctx.IsReplay` | `ctx.is_replay` | `ctx.isReplay` |
 | Trace metadata | `SetMetadata` | `set_metadata` | `setMetadata` |
 | Step metadata | `handle.SetMeta` | `handle.set_meta` | `handle.setMeta` |
 | Load replay | `WithReplay` | `with_replay` | `withReplay` |
