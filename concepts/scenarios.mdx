@@ -16,9 +16,11 @@ Items can be defined in code or managed in the dashboard. If you don't pass item
 | Type | How it works | Cost |
 | - | - | - |
 | **Synthetic** | Runs a fresh input you define against the live LLM. | Real API cost |
-| **Trace-backed** | [Replays](/concepts/replay) a recorded trace with mocked LLM responses. | Zero |
+| **Trace-backed** | [Replays](/concepts/replay) a recorded trace: model steps run live, tool steps return their recorded output. | Model calls only |
 
 An item has either an `input` (synthetic) or a `trace_id` (trace-backed), not both. A trace-backed item's trace must have recorded steps. If it has none, Veval throws rather than silently calling the live LLM.
+
+A trace-backed item runs [live](/concepts/replay#live-replay): steps recorded as `llm` call the model with your current prompt, so a prompt regression fails the item, and every other step is served from the recording, so tools never reach a real system. Set `MockModelSteps` on the item, or pass `mockModelSteps: true` to `RunScenarioAsync` for every item including those loaded from the dashboard, for a mocked replay instead: free and deterministic, good for code changes, but blind to prompt changes. `VevalTestSdk` always replays trace-backed items mocked, so tests built on it never make live model calls.
 
 Each replay restarts the trace's retention window, so a trace your tests replay at least once per window stays. To keep it regardless, click **Use as fixture** on the trace in the dashboard, which pins it. Each plan allows a set number of pinned traces.
 

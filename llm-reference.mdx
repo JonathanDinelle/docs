@@ -215,7 +215,7 @@ ctx.setMetadata("region",  "us-east-1");
 
 ## Replay / Test SDK
 
-`VevalTestSdk` is a drop-in test double. It mocks LLM step outputs from a recorded trace so no real API calls are made. Throws if a step name isn't found in the trace (strict mode).
+`VevalTestSdk` is a drop-in test double. It mocks LLM step outputs from a recorded trace so no real API calls are made. Throws if a step name isn't found in the trace (strict mode). Each call gets the recorded step with the same name and an identical input, else the next unused one in recorded order (reported as diverged in `ReplayResult.Fidelity`). A replay fails if a recorded step is never called.
 
 ```csharp C#
 var trace   = await veval.GetTraceAsync("tr_...");
@@ -361,7 +361,7 @@ const result = await veval.runScenarioAsync(
 // result.passed, result.pass_count, result.fail_count, result.results
 ```
 
-`ScenarioItem` fields: `name` (string), `input` (any), `trace_id` (string) — provide either `input` (live LLM) or `trace_id` (mocked replay), not both. `assertions` is always an array (can be empty).
+`ScenarioItem` fields: `name` (string), `input` (any), `trace_id` (string) — provide either `input` (live LLM) or `trace_id` (live replay: steps recorded as `llm` run live, all other steps return their recorded output), not both. `assertions` is always an array (can be empty). `MockModelSteps` / `mock_model_steps` (bool) makes a trace-backed item a fully mocked replay: free, but blind to prompt changes. `RunScenarioAsync(..., mockModelSteps: true)` (`mock_model_steps=True`; Node: 5th argument `{ mock_model_steps: true }`) does it for every item, including dashboard-defined ones. `VevalTestSdk` always replays trace-backed items mocked. In `ReplayOptions`, `LiveModelSteps` / `live_model_steps` selects live replay; it fails if no step ran live or the agent calls a step the trace never recorded.
 
 A trace-backed item's trace follows the plan's retention window, which restarts each time the trace is replayed. Pinning the trace in the dashboard (**Use as fixture** or **Pin** on the trace page) keeps it indefinitely, up to the plan's pinned-trace limit (Free 25, Starter 100, Growth 500, Pro 2,000). If the trace no longer exists, that item fails with `trace '<id>' not found` and the other items still run.
 
@@ -378,7 +378,7 @@ await veval.SaveSnapshotAsync("briefing-baseline", "tr_golden...");
 // in tests: an assertion like any other; missing baseline = failure
 TraceAssert.MatchesSnapshot(veval, "briefing-baseline")
 
-// guard a replay against its own recording (catches outputs bound to the wrong call)
+// guard a replay against its own recording (also fails on changed step inputs)
 new ReplayOptions { MockLlmResponses = true, CompareWithRecording = new SnapshotOptions() }
 
 // production: compare and record the result in the dashboard

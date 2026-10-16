@@ -9,7 +9,7 @@ A step records one unit of work inside a [trace](/concepts/traces): usually an L
 
 Steps belong to a trace. The step name is how Veval matches steps across runs:
 
-* [Replay](/concepts/replay) serves recorded outputs by step name.
+* [Replay](/concepts/replay) serves each call the recorded step with the same name, preferring the one with an identical input.
 * [Assertions](/concepts/assertions) like `StepExists` and `ToolCalled` look steps up by name.
 * [Snapshots](/concepts/snapshots) align steps by name and position to find what changed.
 
@@ -25,7 +25,7 @@ Give each step a stable name that describes what it does, like `classify` or `an
 | Status | Whether the step completed or failed with an error. |
 | Duration | How long the step took. |
 | Model, tokens, cost | Set with `handle.SetMeta` using the `model`, `tokens_in`, `tokens_out`, and `cost_usd` keys. |
-| Type | Set with `handle.SetMeta("type", "tool")` to mark a tool call. |
+| Type | Set with `handle.SetMeta("type", "llm")` on model calls and `handle.SetMeta("type", "tool")` on tool calls. [Live replay](/concepts/replay#live-replay) runs `llm` steps for real and serves every other step from the recording. |
 | Metadata | Any other key you set with `handle.SetMeta`. |
 
 See [StepHandle metadata keys](/guides/tracing#stephandle-metadata-keys) for the full list.

@@ -122,6 +122,70 @@ This would have made a real LLM call.
 
 This catches regressions where code changes add new LLM calls that weren't in the original trace.
 
+The opposite fails too: if the agent never calls a step the trace recorded, the replay fails with
+
+```
+Replay never called 1 recorded step(s) from trace tr_...: 'visit_portal' (recorded step 2).
+```
+
+When several recorded steps share a name, each call is served the one with an identical input, falling back to the next unused one in recorded order. See [how calls are matched](/concepts/replay#how-calls-are-matched-to-the-recording).
+
+A call whose input differs from every recording of that step is reported, not failed. Read the report from the replay result:
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOptions { MockLlmResponses = true });
+
+foreach (var b in result.Fidelity!.Bindings.Where(b => b.Kind == ReplayBindingKind.Diverged))
+    Console.WriteLine($"{b.StepName}: recorded {b.RecordedInput}, now {b.ActualInput}");
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(mock_llm_responses=True))
+
+for b in result.fidelity.bindings:
+    if b.kind == "diverged":
+        print(f"{b.step_name}: recorded {b.recorded_input}, now {b.actual_input}")
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), { mock_llm_responses: true });
+
+for (const b of result.fidelity.bindings.filter((b) => b.kind === "diverged"))
+  console.log(`${b.step_name}: recorded ${b.recorded_input}, now ${b.actual_input}`);
+```
+</CodeGroup>
+
+## Live replay
+
+To test a prompt change against a recorded trace, replay live: steps recorded as `llm` call the model, and every other step returns its recorded output, so tools never reach a real system. See [Live replay](/concepts/replay#live-replay) for the rules.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOptions
+{
+    LiveModelSteps = true,
+    Assertions     = [TraceAssert.OutputContains("overdue")],
+});
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(
+    live_model_steps=True,
+    assertions=[TraceAssert.output_contains("overdue")],
+))
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
+  live_model_steps: true,
+  assertions: [TraceAssert.outputContains("overdue")],
+});
+```
+</CodeGroup>
+
+Trace-backed scenario items run with `VevalSdk` replay live by default; `VevalTestSdk` keeps them mocked.
+
 ## ReplayAsync directly
 
 For lower-level control, use `ReplayAsync` with explicit assertions:
