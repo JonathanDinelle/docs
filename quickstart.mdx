@@ -91,7 +91,7 @@ Install the SDK, wrap your agent, and see every step in the dashboard.
     Open [dashboard.veval.dev](https://dashboard.veval.dev). You'll see a trace for `my-agent` with one step.
 
     <Note>
-    No trace in the dashboard? Check your console. When Veval can't store a trace, the SDK logs a warning with the HTTP status (and the reason, when the API gives one), for example `Veval: Sending trace failed with status 401` for a wrong API key, or `429` when your plan's quota is used up. Your agent keeps running either way. To make these failures throw instead, see [Delivery failures](/guides/tracing#delivery-failures).
+    No trace in the dashboard? Look for a `Veval: Sending trace failed` warning in your console, such as status `401` for a wrong API key or `429` when your quota is used up. See [Delivery failures](/guides/tracing#delivery-failures).
     </Note>
   </Step>
 </Steps>

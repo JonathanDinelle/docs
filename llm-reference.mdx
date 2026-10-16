@@ -48,18 +48,22 @@ const veval = new VevalSdk({ apiKey: "YOUR_API_KEY" });
 
 | C# | Python | Node | Default | Meaning |
 |----|--------|------|---------|---------|
-| `ApiKey` | `api_key` | `apiKey` | — | Your API key. It also selects the workspace. |
-| `ThrowOnSendFailure` | `raise_on_send_failure` | `throwOnSendFailure` | `false` | Throw when a trace or scenario run can't be stored. Turn it on in tests and CI. |
+| `ApiKey` | `api_key` | `apiKey` | — | Required. Your API key. It also selects the workspace. Without it, every send fails with 401. |
+| `ThrowOnSendFailure` | `raise_on_send_failure` | `throwOnSendFailure` | `false` | Throw when a trace, scenario run or snapshot comparison can't be posted. Turn it on in tests and CI. |
 
 ### Delivery failures
 
-The SDK never throws because Veval is unreachable or rejects a trace, unless strict mode is on. A rejected or failed send (401 wrong API key, 429 quota used up, network error) logs a warning that names the status and, when the API gives one, the reason:
+Sending results (traces, scenario runs, snapshot comparisons) never throws unless strict mode is on. A rejected or failed send (401 wrong API key, 429 quota used up, network error) logs a warning that names the status and, when the API gives one, the reason:
 
 - C#: standard error
 - Python: the `veval` logger at `WARNING`
 - Node: `console.warn`
 
-With `ThrowOnSendFailure` / `raise_on_send_failure` / `throwOnSendFailure` on, the send throws `VevalSendException` (C#, `StatusCode`) or `VevalSendError` (Python and Node, `status`). The status is null when there was no response. If the agent itself threw, its exception wins and the send failure is only logged. In a scenario, every item runs and the run is posted before strict mode throws for any item traces that couldn't be stored.
+Python prints the warning to standard error when the app hasn't configured logging. If it raises the level above `WARNING` or silences library loggers, the warning is hidden.
+
+Calls that return data (`SaveSnapshotAsync`, `GetSnapshotAsync`, `JudgeAsync`, and `RunScenarioAsync` loading items from the dashboard) are not sends: they throw on failure regardless of strict mode. A scenario whose items can't be loaded throws rather than running zero items.
+
+With `ThrowOnSendFailure` / `raise_on_send_failure` / `throwOnSendFailure` on, the send throws `VevalSendException` (C#, `StatusCode`) or `VevalSendError` (Python and Node, `status`). The status is null when there was no response. If the agent itself threw, its exception wins and the send failure is only logged. `CompareSnapshotAsync` throws without returning the diff if posting the comparison fails. In a scenario, every item runs, then the run is posted. If that post fails, strict mode throws that failure. Otherwise it throws one error for any item traces that couldn't be stored (`N trace(s) from scenario '<name>' could not be stored`). That error's status is always null; the per-item warnings have the statuses.
 
 If traces don't appear in the dashboard, look for these warnings first.
 
