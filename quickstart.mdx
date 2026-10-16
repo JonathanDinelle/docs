@@ -112,6 +112,7 @@ public class MyAgentService(IVevalSdk veval, AnthropicClient claude)
             var response = await claude.Messages.CreateAsync(...);
 
             // attach LLM metadata to the step
+            handle.SetMeta("type",       "llm");
             handle.SetMeta("model",      response.Model);
             handle.SetMeta("tokens_in",  response.Usage.InputTokens);
             handle.SetMeta("tokens_out", response.Usage.OutputTokens);
@@ -142,6 +143,7 @@ class MyAgentService:
             response = await self._anthropic.messages.create(...)
 
             # attach LLM metadata to the step
+            handle.set_meta("type",       "llm")
             handle.set_meta("model",      response.model)
             handle.set_meta("tokens_in",  response.usage.input_tokens)
             handle.set_meta("tokens_out", response.usage.output_tokens)
@@ -170,6 +172,7 @@ class MyAgentService {
       const response = await this.anthropic.messages.create({ ... });
 
       // attach LLM metadata to the step
+      handle.setMeta("type",       "llm");
       handle.setMeta("model",      response.model);
       handle.setMeta("tokens_in",  response.usage.input_tokens);
       handle.setMeta("tokens_out", response.usage.output_tokens);

@@ -133,6 +133,8 @@ var answer = await ctx.TrackStepAsync("answer", input: question, async handle =>
 {
     var response = await claude.Messages.CreateAsync(...);
 
+    handle.SetMeta("type",       "llm");
+
     handle.SetMeta("model",      response.Model);
     handle.SetMeta("tokens_in",  response.Usage.InputTokens);
     handle.SetMeta("tokens_out", response.Usage.OutputTokens);
@@ -152,6 +154,8 @@ summary = await ctx.track_step_async("summarize", text, summarize)
 # Handle overload — attach LLM metadata
 async def answer(handle):
     response = await anthropic.messages.create(...)
+
+    handle.set_meta("type",       "llm")
 
     handle.set_meta("model",      response.model)
     handle.set_meta("tokens_in",  response.usage.input_tokens)
@@ -173,6 +177,8 @@ const summary = await ctx.trackStepAsync("summarize", text, async () => {
 const answer = await ctx.trackStepAsync("answer", question, async (handle) => {
   const response = await anthropic.messages.create({ ... });
 
+  handle.setMeta("type",       "llm");
+
   handle.setMeta("model",      response.model);
   handle.setMeta("tokens_in",  response.usage.input_tokens);
   handle.setMeta("tokens_out", response.usage.output_tokens);
@@ -193,7 +199,7 @@ const answer = await ctx.trackStepAsync("answer", question, async (handle) => {
 | `tokens_in` | `int` | Input token count |
 | `tokens_out` | `int` | Output token count |
 | `cost_usd` | `decimal` | Cost in USD |
-| `type` | `string` | Step type — use `"tool"` for tool calls |
+| `type` | `string` | Step type: `"llm"` for model calls, `"tool"` for tool calls. Live replay runs `llm` steps for real and serves every other step from the recording, so mark both |
 | *(custom)* | `object` | Any other key stored in step metadata |
 
 ## Nested steps

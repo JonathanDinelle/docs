@@ -10,7 +10,7 @@ Veval wraps your agent runs and LLM calls to record traces: inputs, outputs, ste
 ## Why use Veval
 
 * **Every step, recorded.** Each agent run becomes a trace with its steps, inputs, outputs, timing, tokens, and cost.
-* **Tests without LLM calls.** Replay a recorded production trace with mocked LLM responses. Deterministic, fast, and free.
+* **Production traces as regression tests.** Replay a recorded trace with mocked LLM responses for deterministic, free tests, or live, where the model runs with your current prompt and tools return their recorded output, to catch prompt regressions.
 * **Strict by default.** If your agent makes a call the recording doesn't have, replay throws instead of calling the live LLM.
 * **Regressions you can read.** Snapshots compare a run against a known-good baseline and report changed prompts, tool arguments, and added, removed, or moved steps, with a line diff.
 * **Built-in checks.** Assert on errors, step count, cost, duration, outputs, and tool calls, or grade outputs with an LLM judge.
