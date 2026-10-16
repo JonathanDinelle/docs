@@ -1,9 +1,9 @@
 ---
 title: "Replay"
-description: "Replay runs your agent against a recorded trace with mocked LLM responses."
+description: "Replay runs your agent against a recorded trace, with model calls mocked or live."
 ---
 
-Replay runs your real agent code, but each step returns the output recorded in a [trace](/concepts/traces) instead of calling the LLM. Tests built on replay are deterministic, fast, and free.
+Replay runs your real agent code against a recorded [trace](/concepts/traces). In a mocked replay, every step returns its recorded output instead of calling the LLM, so tests are deterministic, fast, and free. In a [live replay](#live-replay), model steps call the LLM with your current prompt while tools still return their recorded output, so a prompt change shows up without touching real systems.
 
 ## How replay fits in
 
