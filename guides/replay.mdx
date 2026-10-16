@@ -156,6 +156,36 @@ for (const b of result.fidelity.bindings.filter((b) => b.kind === "diverged"))
 ```
 </CodeGroup>
 
+## Live replay
+
+To test a prompt change against a recorded trace, replay live: steps recorded as `llm` call the model, and every other step returns its recorded output, so tools never reach a real system. See [Live replay](/concepts/replay#live-replay) for the rules.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOptions
+{
+    LiveModelSteps = true,
+    Assertions     = [TraceAssert.OutputContains("overdue")],
+});
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(
+    live_model_steps=True,
+    assertions=[TraceAssert.output_contains("overdue")],
+))
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
+  live_model_steps: true,
+  assertions: [TraceAssert.outputContains("overdue")],
+});
+```
+</CodeGroup>
+
+Trace-backed scenario items replay live by default.
+
 ## ReplayAsync directly
 
 For lower-level control, use `ReplayAsync` with explicit assertions:

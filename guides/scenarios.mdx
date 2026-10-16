@@ -10,7 +10,7 @@ Scenarios have two item types:
 | Type | How it works | Cost |
 |------|-------------|------|
 | **Synthetic** | Live LLM, fresh input you define | Real API cost |
-| **Trace-backed** | Mocked LLM, replays a recorded production trace | Zero |
+| **Trace-backed** | Replays a recorded production trace: live model, recorded tool data | Model calls only |
 
 ## RunScenarioAsync
 
@@ -98,7 +98,9 @@ ScenarioItem(
 
 ## Trace-backed items
 
-Use these to replay a recorded production trace with mocked LLM responses — no API cost.
+Use these to turn a recorded production trace into a regression test. Steps recorded as `llm` run live with your current prompt, so a prompt change that makes the output worse fails the item. Every other step (tools, untyped steps) returns its recorded output, so the replay sees the same data as the original run and never reaches a real system.
+
+Mark your model steps when you record the trace, with `step.SetMeta("type", "llm")` (`set_meta` / `setMeta`), and your tools with `"tool"`. If no step of a trace-backed item ran live, the item fails and tells you to mark the model steps.
 
 <CodeGroup>
 ```csharp C#
@@ -130,6 +132,24 @@ ScenarioItem(
 <Note>
   The trace must have recorded steps. If it has none, Veval throws rather than silently calling the live LLM.
 </Note>
+
+### Mocked trace-backed items
+
+Set `MockModelSteps` to serve model steps from the recording too. The item is then free and deterministic, which suits checking a code change (routing, parsing, tool wiring), but it can't catch a prompt regression: every model call returns what the old prompt produced.
+
+<CodeGroup>
+```csharp C#
+new ScenarioItem { TraceId = "tr_4ec4e79c5d03...", MockModelSteps = true }
+```
+
+```python Python
+ScenarioItem(trace_id="tr_4ec4e79c5d03...", mock_model_steps=True)
+```
+
+```javascript Node
+{ trace_id: "tr_4ec4e79c5d03...", mock_model_steps: true, assertions: [] }
+```
+</CodeGroup>
 
 ### Keeping the trace
 
