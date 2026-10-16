@@ -104,7 +104,7 @@ To run fully offline in CI, register the baseline locally with `WithSnapshot(nam
 
 ## Guard every replay against its recording
 
-Replay serves recorded outputs by step name. If your agent's control flow changes — a step skipped, a call added — a recorded output can be handed to the wrong call and every assertion can still pass. Turn on `CompareWithRecording` and the replay also fails when its sequence or inputs drift from the trace it's replaying:
+A mocked replay already fails when your agent adds a call or skips a recorded step, and it reports calls whose input differs from the recording without failing on them ([how calls are matched](/concepts/replay#how-calls-are-matched-to-the-recording)). Turn on `CompareWithRecording` and the replay also fails when its sequence or inputs drift from the trace it's replaying:
 
 <CodeGroup>
 ```csharp C#

@@ -9,7 +9,7 @@ A step records one unit of work inside a [trace](/concepts/traces): usually an L
 
 Steps belong to a trace. The step name is how Veval matches steps across runs:
 
-* [Replay](/concepts/replay) serves recorded outputs by step name.
+* [Replay](/concepts/replay) serves each call the recorded step with the same name, preferring the one with an identical input.
 * [Assertions](/concepts/assertions) like `StepExists` and `ToolCalled` look steps up by name.
 * [Snapshots](/concepts/snapshots) align steps by name and position to find what changed.
 

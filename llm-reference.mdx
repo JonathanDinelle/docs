@@ -215,7 +215,7 @@ ctx.setMetadata("region",  "us-east-1");
 
 ## Replay / Test SDK
 
-`VevalTestSdk` is a drop-in test double. It mocks LLM step outputs from a recorded trace so no real API calls are made. Throws if a step name isn't found in the trace (strict mode).
+`VevalTestSdk` is a drop-in test double. It mocks LLM step outputs from a recorded trace so no real API calls are made. Throws if a step name isn't found in the trace (strict mode). Each call gets the recorded step with the same name and an identical input, else the next unused one in recorded order (reported as diverged in `ReplayResult.Fidelity`). A replay fails if a recorded step is never called.
 
 ```csharp C#
 var trace   = await veval.GetTraceAsync("tr_...");
@@ -378,7 +378,7 @@ await veval.SaveSnapshotAsync("briefing-baseline", "tr_golden...");
 // in tests: an assertion like any other; missing baseline = failure
 TraceAssert.MatchesSnapshot(veval, "briefing-baseline")
 
-// guard a replay against its own recording (catches outputs bound to the wrong call)
+// guard a replay against its own recording (also fails on changed step inputs)
 new ReplayOptions { MockLlmResponses = true, CompareWithRecording = new SnapshotOptions() }
 
 // production: compare and record the result in the dashboard

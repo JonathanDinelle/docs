@@ -57,7 +57,7 @@ After a run, [assertions](/concepts/assertions) check the result: no errors, cos
 
 ## Replay is strict
 
-If your agent calls `TrackStepAsync` with a step name that isn't in the recorded trace, `VevalTestSdk` throws. It never falls through to the live LLM. New LLM calls fail the test instead of quietly costing money.
+If your agent calls `TrackStepAsync` with a step name that isn't in the recorded trace, `VevalTestSdk` throws. It never falls through to the live LLM. New LLM calls fail the test instead of quietly costing money, and a recorded step the agent never calls fails it too.
 
 ## Next steps
 

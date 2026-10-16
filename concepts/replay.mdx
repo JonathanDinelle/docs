@@ -7,7 +7,7 @@ Replay runs your real agent code, but each step returns the output recorded in a
 
 ## How replay fits in
 
-`VevalTestSdk` is a test double for `IVevalSdk`. Load a trace with `WithReplay`, inject the test SDK into your agent in place of the real one, and call it normally. When your agent calls `TrackStepAsync`, the test SDK returns the recorded output for that step name.
+`VevalTestSdk` is a test double for `IVevalSdk`. Load a trace with `WithReplay`, inject the test SDK into your agent in place of the real one, and call it normally. When your agent calls `TrackStepAsync`, the test SDK returns the output recorded for that call.
 
 Have your agent accept the `IVevalSdk` interface, not the concrete class, so your tests can swap in `VevalTestSdk`.
 
@@ -25,9 +25,22 @@ This would have made a real LLM call.
 
 A code change that adds a new LLM call fails the test instead of quietly making real calls.
 
+## How calls are matched to the recording
+
+Each `TrackStepAsync` call is served a recorded step with the same name. When several recorded steps share that name, replay picks the one whose input is identical to the call's input (key order doesn't matter), so calls that changed order still get their own outputs. If none is identical, replay uses the next unused recording of that step in recorded order and marks the call **diverged**.
+
+In mocked mode, a replay fails if your agent:
+
+* calls a step more times than the trace recorded (the strict error above), or
+* never calls a step the trace recorded. A skipped branch would otherwise leave your assertions passing on a path the recording doesn't cover.
+
+A diverged input doesn't fail the replay on its own: prompts often contain dates or IDs that change on every run. Each replay result reports how every call was matched in `Fidelity` (`fidelity` in Python and Node): which calls matched, which diverged with the recorded and actual input side by side, and which recorded steps went unused.
+
 ## Guarding against drift
 
-Replay serves recorded outputs by step name. If your agent's control flow changes, a recorded output can be handed to the wrong call while every assertion still passes. Turn on `CompareWithRecording` in `ReplayOptions` and the replay also fails when its step sequence or inputs drift from the trace it's replaying.
+To also fail when inputs drift, turn on `CompareWithRecording` in `ReplayOptions`. The replay then fails when its step sequence or any step input differs from the trace it's replaying. List fields that legitimately change on every run in its `IgnoreFields`; Veval never ignores a field you didn't list.
+
+Mocked replay checks control flow and code changes. It can't tell you whether a new prompt is better, because every model call returns what the old prompt produced. To test a prompt change, run the scenario live.
 
 ## Reporting
 
