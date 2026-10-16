@@ -73,7 +73,9 @@ Each SDK logs it in that language's usual place:
 
 Posting a scenario run or a snapshot comparison to the dashboard fails the same way: a warning, and no exception unless strict mode is on.
 
-This only covers sending results. Calls that return something you asked for (`SaveSnapshotAsync`, `GetSnapshotAsync`, `JudgeAsync`, and `RunScenarioAsync` loading a scenario's items) throw when they fail, whether or not strict mode is on. A scenario whose items can't be loaded throws instead of running zero items and passing.
+This only covers sending results. Calls that return something you asked for throw when they fail, whether or not strict mode is on. That includes `SaveSnapshotAsync`, `GetSnapshotAsync`, `JudgeAsync` and `GetTraceAsync`. It also includes `RunScenarioAsync` when it loads a scenario's items or a saved trace to replay.
+
+Loading a trace or a scenario's items throws `VevalRequestException` (C#) or `VevalRequestError` (Python, Node). Like the send error, it carries the HTTP status, or null when there was no response. `GetTraceAsync` returns null only when the trace doesn't exist. A scenario whose items can't be loaded throws instead of running zero items and passing.
 
 ### Throw in tests and CI
 
