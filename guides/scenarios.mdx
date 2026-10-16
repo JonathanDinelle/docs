@@ -151,6 +151,24 @@ ScenarioItem(trace_id="tr_4ec4e79c5d03...", mock_model_steps=True)
 ```
 </CodeGroup>
 
+To mock every trace-backed item in a run, including items loaded from the dashboard, pass the option to `RunScenarioAsync`:
+
+<CodeGroup>
+```csharp C#
+await veval.RunScenarioAsync("my-scenario", agent, assertions, mockModelSteps: true);
+```
+
+```python Python
+await veval.run_scenario_async("my-scenario", agent, assertions, mock_model_steps=True)
+```
+
+```javascript Node
+await veval.runScenarioAsync("my-scenario", agent, assertions, undefined, { mock_model_steps: true });
+```
+</CodeGroup>
+
+`VevalTestSdk` always replays trace-backed items mocked, so a test built on it never makes a live model call.
+
 ### Keeping the trace
 
 Traces are deleted after your plan's retention window. Each time a scenario replays a trace, its retention restarts, so a trace your tests replay at least once per window stays.

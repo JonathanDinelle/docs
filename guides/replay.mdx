@@ -184,7 +184,7 @@ const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
 ```
 </CodeGroup>
 
-Trace-backed scenario items replay live by default.
+Trace-backed scenario items run with `VevalSdk` replay live by default; `VevalTestSdk` keeps them mocked.
 
 ## ReplayAsync directly
 

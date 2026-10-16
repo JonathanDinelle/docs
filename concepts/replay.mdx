@@ -44,7 +44,7 @@ Mocked replay checks control flow and code changes. It can't tell you whether a 
 
 ## Live replay
 
-With `LiveModelSteps` in `ReplayOptions`, steps recorded as `llm` run for real and every other step is served from the recording. A prompt change shows up in the output, while tool calls (a portal visit, a payment) return what they returned in production and never reach a real system. Trace-backed [scenario](/concepts/scenarios) items replay this way by default.
+With `LiveModelSteps` in `ReplayOptions`, steps recorded as `llm` run for real and every other step is served from the recording. A prompt change shows up in the output, while tool calls (a portal visit, a payment) return what they returned in production and never reach a real system. Trace-backed [scenario](/concepts/scenarios) items run with `VevalSdk` replay this way by default; `VevalTestSdk` keeps them mocked.
 
 * A step recorded as `tool` or left untyped is served from the recording, never run.
 * A model step called more often than recorded runs live too.
