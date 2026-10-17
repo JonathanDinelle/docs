@@ -57,7 +57,7 @@ const result = await veval.runAsync(
 
 ## Synchronous Python agents
 
-If your Python agent is plain synchronous code, use `run` and `track_step`. They take ordinary functions and don't start an event loop, so they're safe to call from any thread or web framework. C# and Node agents use the async API.
+If your Python agent is plain synchronous code, use `run` and `track_step`. They take ordinary functions and need no event loop. `run` sends the trace on the calling thread, so in async code, such as an `async def` web handler, use `run_async` instead. C# and Node agents use the async API.
 
 ```python Python
 def answer(ctx):
