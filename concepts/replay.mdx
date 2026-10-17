@@ -52,6 +52,10 @@ With `LiveModelSteps` in `ReplayOptions`, steps recorded as `llm` run for real a
 * A recorded step the agent didn't call is reported in `Fidelity` but doesn't fail the replay: a live model can take a different path.
 * If no step ran live, the replay fails, because nothing could have caught a prompt change. Mark model steps with `SetMeta("type", "llm")` when you record.
 
+## Side effects during replay
+
+Replay serves recorded outputs only to code inside a step. Anything your agent does outside a step, like sending an email or writing to a database, runs again in every replay. Either wrap that work in a step recorded as `tool`, so replay serves it from the recording, or check `ctx.IsReplay` (`ctx.is_replay` in Python, `ctx.isReplay` in Node) and skip it. `IsReplay` is true in every replay, mocked or live, including trace-backed scenario items and `VevalTestSdk.WithReplay`. See [Skip side effects](/guides/replay#skip-side-effects).
+
 ## Reporting
 
 `VevalTestSdk` still reports traces and scenario results to the dashboard, so replay runs count in your history.

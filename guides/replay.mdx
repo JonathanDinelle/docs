@@ -186,6 +186,34 @@ const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
 
 Trace-backed scenario items run with `VevalSdk` replay live by default; `VevalTestSdk` keeps them mocked.
 
+## Skip side effects
+
+Only code inside a step is served from the recording. Work your agent does outside a step runs again on every replay, so check `IsReplay` before it. `IsReplay` is true in every replay, mocked or live, and false in a normal run.
+
+<CodeGroup>
+```csharp C#
+var reply = await ctx.TrackStepAsync("write_reply", slot, handle => WriteReplyAsync(slot, handle));
+
+if (!ctx.IsReplay)
+    await email.SendAsync(customer, reply);
+```
+
+```python Python
+reply = await ctx.track_step_async("write_reply", slot, write_reply)
+
+if not ctx.is_replay:
+    await email.send(customer, reply)
+```
+
+```javascript Node
+const reply = await ctx.trackStepAsync("write_reply", slot, (handle) => writeReply(slot, handle));
+
+if (!ctx.isReplay) await email.send(customer, reply);
+```
+</CodeGroup>
+
+If the side effect's result matters to the agent, wrap it in a step with `SetMeta("type", "tool")` instead: replay then returns the recorded result without running it.
+
 ## ReplayAsync directly
 
 For lower-level control, use `ReplayAsync` with explicit assertions:
