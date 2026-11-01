@@ -27,7 +27,7 @@ A code change that adds a new LLM call fails the test instead of quietly making 
 
 ## How calls are matched to the recording
 
-Each `TrackStepAsync` call is served a recorded step with the same name. When several recorded steps share that name, replay picks the one whose input is identical to the call's input (key order doesn't matter), so calls that changed order still get their own outputs. If none is identical, replay uses the next unused recording of that step in recorded order and marks the call **diverged**.
+Each `TrackStepAsync` call is served a recorded step with the same name. When several recorded steps share that name, replay picks the one whose input is identical to the call's input (key order doesn't matter), so calls that changed order still get their own outputs. If none is identical, replay uses the next unused recording of that step in recorded order and marks the call **diverged**. A [step rule](#step-rules) can match a step on its name only, or ignore some input fields when matching.
 
 In mocked mode, a replay fails if your agent:
 
@@ -48,9 +48,33 @@ With `LiveModelSteps` in `ReplayOptions`, steps recorded as `llm` run for real a
 
 * A step recorded as `tool` or left untyped is served from the recording, never run.
 * A model step called more often than recorded runs live too.
-* A call to a step the trace never recorded fails the replay, because Veval can't tell whether running it is safe.
 * A recorded step the agent didn't call is reported in `Fidelity` but doesn't fail the replay: a live model can take a different path.
 * If no step ran live, the replay fails, because nothing could have caught a prompt change. Mark model steps with `SetMeta("type", "llm")` when you record.
+
+### When the run leaves the recording
+
+A live model can choose differently than it did when the trace was recorded. From that point the recording can't say what the real tools would have returned, so serving the model a recording from another path could pass a run that would fail for real. Instead, the replay stops at that step and ends **inconclusive**: it neither passes nor fails.
+
+The replay stops when:
+
+* a step recorded as `tool` is called with an input that matches none of its unused recordings, or
+* a step that isn't a model step is called with no unused recording left to serve: a new tool, or an extra call.
+
+Other diverged steps, such as untyped ones, are served the next unused recording and reported as diverged in `Fidelity`, as before.
+
+When a replay stops, its assertions aren't evaluated, `Passed` is false, and `Inconclusive` (`inconclusive` in Python and Node) reports the step's position and name, why it stopped, and the recorded and actual input side by side. The step that stopped throws `ReplayStoppedException` (`ReplayStoppedError` in Python and Node) into your agent; if your agent catches it, the replay is still inconclusive and every later step throws it again. In a [scenario](/concepts/scenarios), an inconclusive item counts in `InconclusiveCount` (`inconclusive_count`), not in the failures, and makes the run not pass. The dashboard shows it as not passed, with the stop as the reason.
+
+A change to your own code that alters how a tool is called stops a live replay too, because the tool's input no longer matches the recording. To test that kind of change, re-record, or replay mocked.
+
+### Step rules
+
+`StepRules` in `ReplayOptions` (`step_rules` in Python and Node) sets, per step name, how calls match their recordings and what a live replay does when none matches. It also takes effect on scenario items, for the whole scenario or one item.
+
+* **Match on name only** (`MatchOnNameOnly`): any call of the step matches its next unused recording. Use it for steps whose input doesn't change what they return, such as narration whose wording follows the model.
+* **Ignore input fields** (`IgnoreInputFields`): drop these property names, at any depth, before comparing inputs. Use it for fields such as a free-text `reasoning` argument next to the arguments that matter.
+* **On divergence** (`OnDivergence`): `Stop` or `Serve`, overriding the default for that step. The default stops steps whose recorded type is in `StopOnDivergenceTypes`, which is `tool` unless you change it.
+
+Matching rules apply to mocked replays too; mocked replays never stop. See [Live replay](/guides/replay#live-replay) for examples.
 
 ## Side effects during replay
 

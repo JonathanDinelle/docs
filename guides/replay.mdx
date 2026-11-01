@@ -186,6 +186,60 @@ const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
 
 Trace-backed scenario items run with `VevalSdk` replay live by default; `VevalTestSdk` keeps them mocked.
 
+### When the model takes another path
+
+If a tool step is called with an input the recording doesn't have, or a step has no recording left, the live replay stops there and is inconclusive rather than serving the model a recording from another path. Check `Outcome` to tell it apart from a failure, and use step rules for steps whose input doesn't matter. See [When the run leaves the recording](/concepts/replay#when-the-run-leaves-the-recording) for the rules.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOptions
+{
+    LiveModelSteps = true,
+    Assertions     = [TraceAssert.OutputContains("Booked")],
+    StepRules =
+    {
+        // Narration follows the model's wording and doesn't change the page.
+        ["set_screen_capture_reasoning"] = new ReplayStepRule { MatchOnNameOnly = true },
+        ["page_snapshot"] = new ReplayStepRule { IgnoreInputFields = new HashSet<string> { "reasoning" } },
+    },
+});
+
+if (result.Outcome == ReplayOutcome.Inconclusive)
+    Console.WriteLine(result.Inconclusive!.Message); // the step, and the recorded and actual input
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(
+    live_model_steps=True,
+    assertions=[TraceAssert.output_contains("Booked")],
+    step_rules={
+        # Narration follows the model's wording and doesn't change the page.
+        "set_screen_capture_reasoning": ReplayStepRule(match_on_name_only=True),
+        "page_snapshot": ReplayStepRule(ignore_input_fields={"reasoning"}),
+    },
+))
+
+if result.outcome == "inconclusive":
+    print(result.inconclusive.message)  # the step, and the recorded and actual input
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
+  live_model_steps: true,
+  assertions: [TraceAssert.outputContains("Booked")],
+  step_rules: {
+    // Narration follows the model's wording and doesn't change the page.
+    set_screen_capture_reasoning: { match_on_name_only: true },
+    page_snapshot: { ignore_input_fields: ["reasoning"] },
+  },
+});
+
+if (result.outcome === "inconclusive") console.log(result.inconclusive!.message); // the step, and the recorded and actual input
+```
+</CodeGroup>
+
+`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. For a scenario, pass the rules to `RunScenarioAsync` (`stepRules:`; `step_rules=` in Python, `{ step_rules }` options in Node) or set them on one item.
+
 ## Skip side effects
 
 Only code inside a step is served from the recording. Work your agent does outside a step runs again on every replay, so check `IsReplay` before it. `IsReplay` is true in every replay, mocked or live, and false in a normal run.
