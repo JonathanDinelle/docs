@@ -74,6 +74,10 @@ A change to your own code that alters how a tool is called stops a live replay t
 * **Ignore input fields** (`IgnoreInputFields`): drop these property names, at any depth, before comparing inputs. Use it for fields such as a free-text `reasoning` argument next to the arguments that matter.
 * **On divergence** (`OnDivergence`): `Stop` or `Serve`, overriding the default for that step. The default stops steps whose recorded type is in `StopOnDivergenceTypes`, which is `tool` unless you change it.
 
+An input that is a JSON object encoded as a string, such as a model's tool-call arguments, is parsed before fields are ignored.
+
+`OnDivergence` only decides what happens to a call that has recordings left to serve. A call with no unused recording left always stops a live replay, even with `Serve`, because there is nothing to serve it. Model steps always run live in a live replay, so `OnDivergence` has no effect on them.
+
 Matching rules apply to mocked replays too; mocked replays never stop. See [Live replay](/guides/replay#live-replay) for examples.
 
 ## Side effects during replay
