@@ -48,7 +48,7 @@ With `LiveModelSteps` in `ReplayOptions`, steps recorded as `llm` run for real a
 
 * A step recorded as `tool` or left untyped is served from the recording, never run.
 * A model step called more often than recorded runs live too.
-* A model step the recording never contained runs live if its type is given where it's called (`StepOptions`, see [Steps](/concepts/steps)). Without it, Veval can't tell a model call from a tool call before the step runs, so the replay stops there. When the recording has the step, its recorded type wins, and a different type at the call site is reported in `Fidelity` (`DeclaredType`).
+* A model step the recording doesn't know as one runs live if its type is given where it's called (`StepOptions`, see [Steps](/concepts/steps)). That covers a step the recording never contained and one saved untyped (`custom`), such as a model call that threw before `SetMeta` ran. Without it, Veval can't tell a model call from a tool call before the step runs: an unrecorded step stops the replay, and an untyped one is served its recorded output. A recorded `llm` or `tool` type wins, and a different type at the call site is reported in `Fidelity` (`DeclaredType`), so a mislabelled call can't turn a recorded tool step live.
 * A recorded step the agent didn't call is reported in `Fidelity` but doesn't fail the replay: a live model can take a different path.
 * If no step ran live, the replay fails, because nothing could have caught a prompt change. Mark model steps with `StepOptions { Type = StepType.Llm }` at the call site, or `SetMeta("type", "llm")`, when you record.
 
