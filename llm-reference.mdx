@@ -377,7 +377,7 @@ Pass `items: null` / omit `items` to fetch them from the dashboard by `scenarioN
 
 ## Snapshots
 
-A snapshot is a stored known-good run: every step in order with its input and output. Comparing a run against it reports added, removed, and moved steps (including an extra call of a known step) and changed step inputs (prompts, tool arguments), each with a line diff. Saving by trace ID pins the trace, so baselines survive retention.
+A snapshot is a stored known-good run: every step in order with its input and output. Comparing a run against it reports added, removed, and moved steps (including an extra call of a known step) and changed step inputs (prompts, tool arguments), each with a line diff. Saving pins the baseline and its source trace, so baselines survive retention. Pinned snapshots are limited per plan (Free 3, Starter 10, Growth 50, Pro 200); saving a new name at the limit throws `VevalRequestException` / `VevalRequestError` with status 409, and saving again under a pinned name reuses its pin. Pass `new SaveSnapshotOptions { Pinned = false }` (Python `SaveSnapshotOptions(pinned=False)`, Node `{ pinned: false }`) to save a baseline that expires with retention.
 
 ```csharp C#
 // save once (or again, after an intentional change)
