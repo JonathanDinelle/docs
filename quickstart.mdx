@@ -112,14 +112,13 @@ public class MyAgentService(IVevalSdk veval, AnthropicClient claude)
             var response = await claude.Messages.CreateAsync(...);
 
             // attach LLM metadata to the step
-            handle.SetMeta("type",       "llm");
             handle.SetMeta("model",      response.Model);
             handle.SetMeta("tokens_in",  response.Usage.InputTokens);
             handle.SetMeta("tokens_out", response.Usage.OutputTokens);
             handle.SetMeta("cost_usd",   ComputeCost(response.Usage));
 
             return response.Content[0].Text;
-        });
+        }, new StepOptions { Type = StepType.Llm }); // a model call: live replay runs it for real
 
         return answer;
     }
@@ -143,7 +142,6 @@ class MyAgentService:
             response = await self._anthropic.messages.create(...)
 
             # attach LLM metadata to the step
-            handle.set_meta("type",       "llm")
             handle.set_meta("model",      response.model)
             handle.set_meta("tokens_in",  response.usage.input_tokens)
             handle.set_meta("tokens_out", response.usage.output_tokens)
@@ -151,7 +149,8 @@ class MyAgentService:
 
             return response.content[0].text
 
-        return await ctx.track_step_async("answer", ctx.input, step)
+        # a model call: live replay runs it for real
+        return await ctx.track_step_async("answer", ctx.input, step, StepOptions(type=StepType.LLM))
 
 # Wire it up
 veval   = VevalSdk(VevalOptions(api_key="YOUR_API_KEY"))
@@ -172,14 +171,13 @@ class MyAgentService {
       const response = await this.anthropic.messages.create({ ... });
 
       // attach LLM metadata to the step
-      handle.setMeta("type",       "llm");
       handle.setMeta("model",      response.model);
       handle.setMeta("tokens_in",  response.usage.input_tokens);
       handle.setMeta("tokens_out", response.usage.output_tokens);
       handle.setMeta("cost_usd",   computeCost(response.usage));
 
       return response.content[0].text;
-    });
+    }, { type: StepType.Llm }); // a model call: live replay runs it for real
   }
 }
 

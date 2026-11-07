@@ -217,7 +217,7 @@ const answer = await ctx.trackStepAsync("answer", question, async (handle) => {
 | `tokens_in` | `int` | Input token count |
 | `tokens_out` | `int` | Output token count |
 | `cost_usd` | `decimal` | Cost in USD |
-| `type` | `string` | Step type: `"llm"` for model calls, `"tool"` for tool calls. Live replay runs `llm` steps for real and serves every other step from the recording, so mark both |
+| `type` | `string` | Step type: `"llm"` for model calls, `"tool"` for tool calls. Live replay runs `llm` steps for real and serves every other step from the recording, so mark both. For model steps, prefer passing the type where the step is called (`StepOptions`, see [Steps](/concepts/steps)): only then does a live replay know a step the recording never contained is a model call |
 | *(custom)* | `object` | Any other key stored in step metadata |
 
 ## Nested steps

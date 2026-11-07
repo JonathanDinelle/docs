@@ -238,7 +238,7 @@ if (result.outcome === "inconclusive") console.log(result.inconclusive!.message)
 ```
 </CodeGroup>
 
-`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. For a scenario, pass the rules to `RunScenarioAsync` (`stepRules:`; `step_rules=` in Python, `{ step_rules }` options in Node) or set them on one item.
+`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. For a scenario, pass the rules in `ScenarioOptions` to `RunScenarioAsync` (`StepRules`; `step_rules` in Python and Node) or set them on one item.
 
 ## Skip side effects
 
