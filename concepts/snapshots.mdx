@@ -7,7 +7,7 @@ A snapshot stores every step of a known-good run, in order, with the input your 
 
 ## How snapshots fit in
 
-You save a snapshot under a name, from a trace ID or from a run you just executed. The snapshot is stored self-contained, and its source trace is pinned, so neither is removed by trace retention. Saving again under the same name replaces the baseline.
+You save a snapshot under a name, from a trace ID or from a run you just executed. The snapshot is stored self-contained. The snapshot and its source trace are pinned, so trace retention doesn't remove them. Pinned snapshots are limited per plan, and saving again under the same name replaces the baseline and keeps its pin. See [Save a baseline](/guides/snapshots#save-a-baseline).
 
 You then compare runs against it:
 

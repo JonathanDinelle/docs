@@ -21,7 +21,7 @@ Every change comes with its position and, for input/output changes, a line diff 
 
 ## Save a baseline
 
-Pick a known-good production run and save it under a name. The baseline is stored self-contained, and its source trace is **pinned**, so neither is removed by trace retention.
+Pick a known-good production run and save it under a name. The baseline is stored self-contained. The baseline and its source trace are **pinned**, so trace retention doesn't remove them.
 
 <CodeGroup>
 ```csharp C#
@@ -38,6 +38,30 @@ await veval.saveSnapshotAsync("briefing-baseline", "tr_9bc2024e84324464...");
 </CodeGroup>
 
 You can also save from a run you just executed (e.g. a replay or test run) by passing its context instead of a trace ID. Saving again under the same name replaces the baseline — do that when you change the agent intentionally.
+
+### Pinning and the pin limit
+
+Each plan keeps a limited number of pinned snapshots (3 on Free, 10 on Starter, 50 on Growth, 200 on Pro). Saving again under a name that is already pinned reuses its pin. When the limit is reached, saving under a new name throws a request error with status 409. Unpin a baseline on the **Snapshots** page, upgrade, or save this one unpinned. An unpinned baseline expires with your plan's retention, and comparisons against its name then fail.
+
+<CodeGroup>
+```csharp C#
+await veval.SaveSnapshotAsync("briefing-baseline", "tr_9bc2024e84324464...",
+    new SaveSnapshotOptions { Pinned = false });
+```
+
+```python Python
+from veval import SaveSnapshotOptions
+
+await veval.save_snapshot_async("briefing-baseline", "tr_9bc2024e84324464...",
+                                SaveSnapshotOptions(pinned=False))
+```
+
+```javascript Node
+await veval.saveSnapshotAsync("briefing-baseline", "tr_9bc2024e84324464...", { pinned: false });
+```
+</CodeGroup>
+
+The error is a `VevalRequestException` in C# and a `VevalRequestError` in Python and Node. Its status is 409, and its message says how many snapshots are pinned.
 
 <Note>
   Traces are ingested asynchronously. Saving by trace ID right after a run can return 404 until the trace lands — retry shortly, or save from the run's context instead.
