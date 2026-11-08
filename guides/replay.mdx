@@ -206,6 +206,8 @@ var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOp
 
 if (result.Outcome == ReplayOutcome.Inconclusive)
     Console.WriteLine(result.Inconclusive!.Message); // the step, and the recorded and actual input
+
+Assert.True(result.Passed, result.Summary); // fails with e.g. "inconclusive at step 3 'fill' — ..."
 ```
 
 ```python Python
@@ -221,6 +223,8 @@ result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(
 
 if result.outcome == "inconclusive":
     print(result.inconclusive.message)  # the step, and the recorded and actual input
+
+assert result.passed, result.summary  # fails with e.g. "inconclusive at step 3 'fill' — ..."
 ```
 
 ```javascript Node
@@ -235,10 +239,12 @@ const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
 });
 
 if (result.outcome === "inconclusive") console.log(result.inconclusive!.message); // the step, and the recorded and actual input
+
+assert.ok(result.passed, result.summary); // fails with e.g. "inconclusive at step 3 'fill' — ..."
 ```
 </CodeGroup>
 
-`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. For a scenario, pass the rules in `ScenarioOptions` to `RunScenarioAsync` (`StepRules`; `step_rules` in Python and Node) or set them on one item.
+`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. `Summary` (`summary`) puts the result on one line, e.g. `inconclusive at step 3 'fill' — 2/5 recorded steps used, 0 diverged but served, 1 live, left the path`, and the replay's trace has status `inconclusive` rather than `error`. For a scenario, pass the rules in `ScenarioOptions` to `RunScenarioAsync` (`StepRules`; `step_rules` in Python and Node) or set them on one item.
 
 ## Skip side effects
 
