@@ -1,0 +1,234 @@
+---
+title: "Test failure paths"
+description: "Replay a recorded run with a tool timeout, an HTTP error, a rate limit or a malformed output, so your retries, fallbacks and guards are tested."
+---
+
+Production recordings almost never contain the failure. A replay of a good run never reaches your retry policy, your fallback tool or the guard that parses a tool's output, so removing any of them still passes every test.
+
+A **fault** fixes that. You declare it in `ReplayOptions`, and replay serves it in place of a step's recorded output: the step throws a timeout, an HTTP error or a rate limit, or returns a malformed value. Everything else is served from the recording as usual. Faults are deterministic: a fault fires on the calls it targets and nowhere else. A fault test needs no model calls, so it runs in your fast suite.
+
+## Declare a fault
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, ctx => agent.ExecuteAsync(ctx), new ReplayOptions
+{
+    MockLlmResponses = true,
+    Faults = { ReplayFault.Timeout("search_flights").Times(1) },
+    Assertions = [TraceAssert.MaxAttempts("search_flights", 2)],
+});
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, agent.execute_async, ReplayOptions(
+    mock_llm_responses=True,
+    faults=[ReplayFault.timeout("search_flights").times(1)],
+    assertions=[TraceAssert.max_attempts("search_flights", 2)],
+))
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => agent.execute(ctx), {
+  mock_llm_responses: true,
+  faults: [ReplayFault.timeout("search_flights").times(1)],
+  assertions: [TraceAssert.maxAttempts("search_flights", 2)],
+});
+```
+</CodeGroup>
+
+Faults need a mocked replay (`MockLlmResponses`) or a live replay (`LiveModelSteps`).
+
+### Fault kinds
+
+| Fault | C# | Python | Node |
+|-------|----|--------|------|
+| Timeout | `ReplayFault.Timeout(step)` throws `TaskCanceledException` wrapping `TimeoutException`, as `HttpClient` does | `ReplayFault.timeout(step)` raises `TimeoutError` | `ReplayFault.timeout(step)` throws `FaultTimeoutError` (`name === "TimeoutError"`) |
+| HTTP error | `ReplayFault.HttpError(step, 503)` throws `FaultHttpException`, an `HttpRequestException` with `StatusCode` | `ReplayFault.http_error(step, 503)` raises `FaultHttpError` (`status_code`, `headers`) | `ReplayFault.httpError(step, 503)` throws `FaultHttpError` (`status`, `headers`) |
+| Rate limit | `ReplayFault.RateLimit(step, TimeSpan.FromSeconds(2))`: a 429 with `RetryAfter` | `ReplayFault.rate_limit(step, 2)`: a 429 with `headers["Retry-After"]` | `ReplayFault.rateLimit(step, 2)`: a 429 with `headers["retry-after"]` |
+| Malformed output | `ReplayFault.Malformed(step, MalformedOutput.Truncated)`, `MalformedOutput.Empty`, or any value | `ReplayFault.malformed(step, "truncated")`, `"empty"`, or `MalformedValue(x)` | `ReplayFault.malformed(step, "truncated")`, `"empty"`, or `{ value: x }` |
+| Your own exception | `ReplayFault.Throw(step, () => new MyClientException())` | `ReplayFault.throw(step, lambda: MyClientError())` | `ReplayFault.throw(step, () => new MyClientError())` |
+
+A malformed output is returned, not thrown. `truncated` is the step's recorded output as JSON text, cut in half. `empty` is `""` for a step that returns text and `null` otherwise. In C#, a malformed value must convert to the step's return type, so `truncated` needs a step that returns a string or an object.
+
+### Which calls fail
+
+| Modifier | C# | Python | Node |
+|----------|----|--------|------|
+| Fail the first n matching calls, then serve the recording | `.Times(n)` | `.times(n)` | `.times(n)` |
+| Start at the k-th call of the step (retries count) | `.OnCall(k)` | `.on_call(k)` | `.onCall(k)` |
+| Only calls with this input | `.WhenInput(input)` | `.when_input(input)` | `.whenInput(input)` |
+
+Without `Times`, the fault fails every call of the step. Use `Times` to test recovery: the retry gets the recorded output. Fail every call to test a fallback or a guard.
+
+A faulted call doesn't use up a recording. A retry with the same input is served the recorded output, as the original call would have been.
+
+## What the result tells you
+
+- **A fault that never fires fails the test**, with `Fault not triggered`. A fault test whose fault didn't fire tested nothing.
+- **`result.Faults`** (`faults`) lists each fault and how many times it fired. The one-line `Summary` counts injected faults.
+- **The faulted call is a step** in the replayed trace, with status `error` and metadata `_source: "fault"`. `NoErrors` ignores injected faults, since they are the test's doing. Errors your agent raises still fail it.
+- **`MaxAttempts(step, n)`** fails when the step was called more than n times after its first failure. It fails when the step never failed, because there were no attempts to count.
+
+### No false passes
+
+Once a fault has fired, your agent may take a path the recording doesn't cover. Replay never serves that path a recording from somewhere else.
+
+- **Mocked replay.** A call whose name and input still match an unused recording is served as usual. Any other call stops the replay as **inconclusive**: a fallback tool the recording never called, or a model call whose prompt now contains the error. The replay neither passes nor fails, and the message says where it left the recording.
+- **Live replay.** Model steps run live, so the model really sees the error and its reaction is tested. A tool call that leaves the recording stops the replay, as in any [live replay](/guides/replay).
+- **Unused recordings.** A mocked replay normally fails when it never calls part of the recording. After a fault that fails every call, the rest of the recording may rightly go unused, so this check is skipped. Unused steps are still listed in `Fidelity.Unused`. After a fault limited with `Times`, the check stays: your agent is expected to recover and rejoin the recording.
+
+Faults replace the whole step. They test the code around the step, such as a retry loop or a fallback. They don't test error handling inside the step's own function.
+
+## Recipes
+
+### Timeout and retry
+
+The first call times out and the retry gets the recorded result. Remove the retry policy and the test fails with the injected timeout.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, ctx => agent.ExecuteAsync(ctx), new ReplayOptions
+{
+    MockLlmResponses = true,
+    Faults = { ReplayFault.Timeout("search_flights").Times(1) },
+    Assertions = [TraceAssert.MaxAttempts("search_flights", 2), TraceAssert.NoErrors()],
+});
+Assert.True(result.Passed, result.Summary);
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, agent.execute_async, ReplayOptions(
+    mock_llm_responses=True,
+    faults=[ReplayFault.timeout("search_flights").times(1)],
+    assertions=[TraceAssert.max_attempts("search_flights", 2), TraceAssert.no_errors()],
+))
+assert result.passed, result.summary
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => agent.execute(ctx), {
+  mock_llm_responses: true,
+  faults: [ReplayFault.timeout("search_flights").times(1)],
+  assertions: [TraceAssert.maxAttempts("search_flights", 2), TraceAssert.noErrors()],
+});
+assert.ok(result.passed, result.summary);
+```
+</CodeGroup>
+
+### 5xx and fallback
+
+Every call returns a 503, so the agent must fall back. Here the fallback answers from a cache that isn't a step, so the rest of the recording goes unused and the replay still passes.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, ctx => agent.ExecuteAsync(ctx), new ReplayOptions
+{
+    MockLlmResponses = true,
+    Faults = { ReplayFault.HttpError("search_flights", 503) },
+    Assertions = [TraceAssert.NoErrors()],
+});
+Assert.Equal(ReplayOutcome.Passed, result.Outcome);
+Assert.Contains("cached", (string)result.Output!);
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, agent.execute_async, ReplayOptions(
+    mock_llm_responses=True,
+    faults=[ReplayFault.http_error("search_flights", 503)],
+    assertions=[TraceAssert.no_errors()],
+))
+assert result.outcome == "passed", result.summary
+assert "cached" in result.output
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => agent.execute(ctx), {
+  mock_llm_responses: true,
+  faults: [ReplayFault.httpError("search_flights", 503)],
+  assertions: [TraceAssert.noErrors()],
+});
+assert.equal(result.outcome, "passed", result.summary);
+assert.match(result.output, /cached/);
+```
+</CodeGroup>
+
+If the fallback is a tool step, such as `search_trains`, the replay needs a recording that contains it: a trace from a run where the fallback happened. Replayed against a recording that never called it, the run stops as inconclusive at `search_trains`, because nobody knows what it would have returned.
+
+### 429 and backoff
+
+The model call is rate limited twice before it succeeds. Read the wait from the error, and set your backoff to zero in tests so the suite stays fast.
+
+<CodeGroup>
+```csharp C#
+// In the agent: catch (FaultHttpException ex) exposes ex.RetryAfter; production clients expose their own.
+var result = await testSdk.ReplayAsync(trace, ctx => agent.ExecuteAsync(ctx), new ReplayOptions
+{
+    MockLlmResponses = true,
+    Faults = { ReplayFault.RateLimit("write_reply", TimeSpan.FromSeconds(2)).Times(2) },
+    Assertions = [TraceAssert.MaxAttempts("write_reply", 2)],
+});
+```
+
+```python Python
+# In the agent: FaultHttpError exposes retry_after_seconds and headers["Retry-After"].
+result = await test_sdk.replay_async(trace, agent.execute_async, ReplayOptions(
+    mock_llm_responses=True,
+    faults=[ReplayFault.rate_limit("write_reply", 2).times(2)],
+    assertions=[TraceAssert.max_attempts("write_reply", 2)],
+))
+```
+
+```javascript Node
+// In the agent: FaultHttpError exposes retry_after_seconds and headers["retry-after"].
+const result = await testSdk.replayAsync(trace, (ctx) => agent.execute(ctx), {
+  mock_llm_responses: true,
+  faults: [ReplayFault.rateLimit("write_reply", 2).times(2)],
+  assertions: [TraceAssert.maxAttempts("write_reply", 2)],
+});
+```
+</CodeGroup>
+
+### Malformed output and guard
+
+The tool returns truncated JSON once. The guard that parses it should reject it and call again, not pass broken data to the model.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, ctx => agent.ExecuteAsync(ctx), new ReplayOptions
+{
+    MockLlmResponses = true,
+    Faults = { ReplayFault.Malformed("search_flights", MalformedOutput.Truncated).Times(1) },
+    Assertions = [TraceAssert.MaxAttempts("search_flights", 1)],
+});
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, agent.execute_async, ReplayOptions(
+    mock_llm_responses=True,
+    faults=[ReplayFault.malformed("search_flights", "truncated").times(1)],
+    assertions=[TraceAssert.max_attempts("search_flights", 1)],
+))
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => agent.execute(ctx), {
+  mock_llm_responses: true,
+  faults: [ReplayFault.malformed("search_flights", "truncated").times(1)],
+  assertions: [TraceAssert.maxAttempts("search_flights", 1)],
+});
+```
+</CodeGroup>
+
+If the guard instead passes the broken output on, the model call's input changes. A mocked replay then stops as inconclusive at that call, instead of serving the model a recording made from good data.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Test with replay" icon="play" href="/guides/replay">
+    Mocked and live replay, step rules, and inconclusive results.
+  </Card>
+
+  <Card title="Write assertions" icon="circle-check" href="/guides/assertions">
+    Check cost, steps, outputs, and tool calls.
+  </Card>
+</CardGroup>
