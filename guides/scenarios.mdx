@@ -262,42 +262,80 @@ const result = await veval.runScenarioAsync(
 
 <CodeGroup>
 ```csharp C#
-Console.WriteLine($"{result.PassCount}/{result.Results.Count} passed");
+Console.WriteLine(result.Summary);
+// failed — 5 passed, 1 failed, 2 inconclusive (25% > 0% allowed), 6/8 replays stayed on path
 
 foreach (var item in result.Results)
 {
-    Console.WriteLine($"{(item.Passed ? "✓" : "✗")} {item.Item.Name}");
+    Console.WriteLine($"{item.Item.Name}: {item.Summary}");
     foreach (var failure in item.Failures)
         Console.WriteLine($"  → {failure}");
 }
 ```
 
 ```python Python
-print(f"{result.pass_count}/{len(result.results)} passed")
+print(result.summary)
+# failed — 5 passed, 1 failed, 2 inconclusive (25% > 0% allowed), 6/8 replays stayed on path
 
 for item in result.results:
-    print(f"{'✓' if item.passed else '✗'} {item.item.name}")
+    print(f"{item.item.name}: {item.summary}")
     for failure in item.failures:
         print(f"  → {failure}")
 ```
 
 ```javascript Node
-console.log(`${result.pass_count}/${result.results.length} passed`);
+console.log(result.summary);
+// failed — 5 passed, 1 failed, 2 inconclusive (25% > 0% allowed), 6/8 replays stayed on path
 
 for (const item of result.results) {
-  console.log(`${item.passed ? "✓" : "✗"} ${item.item.name}`);
+  console.log(`${item.item.name}: ${item.summary}`);
   for (const failure of item.failures)
     console.log(`  → ${failure}`);
 }
 ```
 </CodeGroup>
 
+An item's summary says how it ended and, for a replayed item, how much of its recording it used, e.g. `passed — 40/64 recorded steps used, 3 diverged, 12 live, stayed on path` or `inconclusive at step 7 'fill' — 6/64 recorded steps used, 0 diverged, 3 live, left the path`. A live replay may legitimately take a shorter path than the recording, so unused recorded steps don't fail it.
+
 | Member | Description |
 |--------|-------------|
-| `Passed` | True if all items passed |
+| `Passed` | True if no item failed and the share of inconclusive items is within `MaxInconclusiveRate` |
 | `PassCount` | Number of passing items |
-| `FailCount` | Number of failing items |
-| `Results` | List of `ItemRunResult` |
+| `FailCount` | Number of failing items; inconclusive items aren't counted here |
+| `InconclusiveCount` | Number of items whose live replay left its recording and stopped |
+| `InconclusiveRate` | `InconclusiveCount` as a share of all items, 0 to 1 |
+| `StayedOnPathRate` | Replayed items that stayed on their recorded path, as a share of replayed items; null when nothing was replayed |
+| `Summary` | The run in one line |
+| `Results` | List of `ItemRunResult`, each with `Outcome`, `Failures`, `Inconclusive` and `Summary` |
+
+Python and Node use snake_case: `pass_count`, `inconclusive_count`, `stayed_on_path_rate`, and so on.
+
+### Inconclusive items
+
+A trace-backed item whose live replay asks for a step the recording doesn't have stops there and is **inconclusive**: nobody knows what the real tool would have returned, so it neither passes nor fails (see [when the run leaves the recording](/concepts/replay#when-the-run-leaves-the-recording)). Its `Inconclusive` (`inconclusive`) holds the step where it left the path and both inputs, and the dashboard shows it with an *inconclusive at step N* badge.
+
+By default, any inconclusive item fails the run: a prompt change that sends every item off its recorded path must not look green in CI. If some items needing a real run is acceptable, raise `MaxInconclusiveRate` (`max_inconclusive_rate`), the largest share of inconclusive items a passing run may have. A failed item fails the run whatever the threshold.
+
+<CodeGroup>
+```csharp C#
+// Pass with up to one item in ten inconclusive.
+var result = await veval.RunScenarioAsync("my-scenario", agent, assertions,
+    options: new ScenarioOptions { MaxInconclusiveRate = 0.1 });
+```
+
+```python Python
+# Pass with up to one item in ten inconclusive.
+result = await veval.run_scenario_async("my-scenario", agent, assertions,
+                                        options=ScenarioOptions(max_inconclusive_rate=0.1))
+```
+
+```javascript Node
+// Pass with up to one item in ten inconclusive.
+const result = await veval.runScenarioAsync("my-scenario", agent, assertions, undefined, { max_inconclusive_rate: 0.1 });
+```
+</CodeGroup>
+
+Don't map an inconclusive item to a skipped test: CI ignores skips. `StayedOnPathRate` (`stayed_on_path_rate`) tells you how far live replay can be trusted for the change under test; the dashboard shows it for each run.
 
 ## What's next
 

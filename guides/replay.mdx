@@ -238,7 +238,7 @@ if (result.outcome === "inconclusive") console.log(result.inconclusive!.message)
 ```
 </CodeGroup>
 
-`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. For a scenario, pass the rules in `ScenarioOptions` to `RunScenarioAsync` (`StepRules`; `step_rules` in Python and Node) or set them on one item.
+`Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. `Summary` (`summary`) puts the result on one line, e.g. `inconclusive at step 3 'fill' — 2/5 recorded steps used, 0 diverged, 1 live, left the path`, and the replay's trace has status `inconclusive` rather than `error`. For a scenario, pass the rules in `ScenarioOptions` to `RunScenarioAsync` (`StepRules`; `step_rules` in Python and Node) or set them on one item.
 
 ## Skip side effects
 
