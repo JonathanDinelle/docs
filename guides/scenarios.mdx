@@ -263,7 +263,7 @@ const result = await veval.runScenarioAsync(
 <CodeGroup>
 ```csharp C#
 Console.WriteLine(result.Summary);
-// failed — 5 passed, 1 failed, 2 inconclusive (25% > 0% allowed), 6/8 replays stayed on path
+// failed — 5 passed, 1 failed, 2 inconclusive (25% of replays > 0% allowed), 6/8 replays stayed on path
 
 foreach (var item in result.Results)
 {
@@ -275,7 +275,7 @@ foreach (var item in result.Results)
 
 ```python Python
 print(result.summary)
-# failed — 5 passed, 1 failed, 2 inconclusive (25% > 0% allowed), 6/8 replays stayed on path
+# failed — 5 passed, 1 failed, 2 inconclusive (25% of replays > 0% allowed), 6/8 replays stayed on path
 
 for item in result.results:
     print(f"{item.item.name}: {item.summary}")
@@ -285,7 +285,7 @@ for item in result.results:
 
 ```javascript Node
 console.log(result.summary);
-// failed — 5 passed, 1 failed, 2 inconclusive (25% > 0% allowed), 6/8 replays stayed on path
+// failed — 5 passed, 1 failed, 2 inconclusive (25% of replays > 0% allowed), 6/8 replays stayed on path
 
 for (const item of result.results) {
   console.log(`${item.item.name}: ${item.summary}`);
@@ -295,26 +295,42 @@ for (const item of result.results) {
 ```
 </CodeGroup>
 
-An item's summary says how it ended and, for a replayed item, how much of its recording it used, e.g. `passed — 40/64 recorded steps used, 3 diverged, 12 live, stayed on path` or `inconclusive at step 7 'fill' — 6/64 recorded steps used, 0 diverged, 3 live, left the path`. A live replay may legitimately take a shorter path than the recording, so unused recorded steps don't fail it.
+An item's summary says how it ended and, for a replayed item, how much of its recording it used, e.g. `passed — 40/64 recorded steps used, 3 diverged but served, 12 live, stayed on path` or `inconclusive at step 7 'fill' — 6/64 recorded steps used, 0 diverged but served, 3 live, left the path`. A live replay may legitimately take a shorter path than the recording, so unused recorded steps don't fail it.
 
 | Member | Description |
 |--------|-------------|
-| `Passed` | True if no item failed and the share of inconclusive items is within `MaxInconclusiveRate` |
+| `Passed` | True if no item failed and the share of replayed items that were inconclusive is within `MaxInconclusiveRate` |
 | `PassCount` | Number of passing items |
 | `FailCount` | Number of failing items; inconclusive items aren't counted here |
 | `InconclusiveCount` | Number of items whose live replay left its recording and stopped |
-| `InconclusiveRate` | `InconclusiveCount` as a share of all items, 0 to 1 |
+| `InconclusiveRate` | `InconclusiveCount` as a share of replayed items, 0 to 1; synthetic items can't be inconclusive, so they don't count |
 | `StayedOnPathRate` | Replayed items that stayed on their recorded path, as a share of replayed items; null when nothing was replayed |
 | `Summary` | The run in one line |
 | `Results` | List of `ItemRunResult`, each with `Outcome`, `Failures`, `Inconclusive` and `Summary` |
 
 Python and Node use snake_case: `pass_count`, `inconclusive_count`, `stayed_on_path_rate`, and so on.
 
+`RunScenarioAsync` doesn't throw when items fail, so assert on `Passed` in your test, with the summary as the message. A failing CI run then says why in one line instead of a bare `false`:
+
+<CodeGroup>
+```csharp C#
+Assert.True(result.Passed, result.Summary);
+```
+
+```python Python
+assert result.passed, result.summary
+```
+
+```javascript Node
+assert.ok(result.passed, result.summary);
+```
+</CodeGroup>
+
 ### Inconclusive items
 
 A trace-backed item whose live replay asks for a step the recording doesn't have stops there and is **inconclusive**: nobody knows what the real tool would have returned, so it neither passes nor fails (see [when the run leaves the recording](/concepts/replay#when-the-run-leaves-the-recording)). Its `Inconclusive` (`inconclusive`) holds the step where it left the path and both inputs, and the dashboard shows it with an *inconclusive at step N* badge.
 
-By default, any inconclusive item fails the run: a prompt change that sends every item off its recorded path must not look green in CI. If some items needing a real run is acceptable, raise `MaxInconclusiveRate` (`max_inconclusive_rate`), the largest share of inconclusive items a passing run may have. A failed item fails the run whatever the threshold.
+By default, any inconclusive item fails the run: a prompt change that sends every item off its recorded path must not look green in CI. If some items needing a real run is acceptable, raise `MaxInconclusiveRate` (`max_inconclusive_rate`), the largest share of replayed items that may be inconclusive in a passing run. A failed item fails the run whatever the threshold. When the threshold alone fails a run, its summary starts with `failed: too many inconclusive`.
 
 <CodeGroup>
 ```csharp C#
