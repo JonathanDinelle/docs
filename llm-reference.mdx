@@ -284,7 +284,7 @@ const r = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx),
 new ReplayOptions { MockLlmResponses = true,
     Faults = { ReplayFault.Timeout("search").Times(1), ReplayFault.HttpError("book", 503),
                ReplayFault.RateLimit("llm", TimeSpan.FromSeconds(1)), ReplayFault.Malformed("parse", MalformedOutput.Truncated),
-               ReplayFault.Throw("crm", () => new MyException()) },
+               ReplayFault.Throw("crm", () => new MyException()), ReplayFault.Returns("lookup", "not found") },
     Assertions = [TraceAssert.MaxAttempts("search", 2)] };
 // .Times(n) fails the first n matching calls, .OnCall(k) starts at call k, .WhenInput(x) matches one input
 ```
@@ -293,21 +293,21 @@ new ReplayOptions { MockLlmResponses = true,
 ReplayOptions(mock_llm_responses=True,
     faults=[ReplayFault.timeout("search").times(1), ReplayFault.http_error("book", 503),
             ReplayFault.rate_limit("llm", 1), ReplayFault.malformed("parse", "truncated"),
-            ReplayFault.throw("crm", lambda: MyError())],
+            ReplayFault.throw("crm", lambda: MyError()), ReplayFault.returns("lookup", "not found")],
     assertions=[TraceAssert.max_attempts("search", 2)])
-# .times(n), .on_call(k), .when_input(x); MalformedValue(x) returns any value
+# .times(n), .on_call(k), .when_input(x)
 ```
 
 ```javascript Node
 ({ mock_llm_responses: true,
    faults: [ReplayFault.timeout("search").times(1), ReplayFault.httpError("book", 503),
             ReplayFault.rateLimit("llm", 1), ReplayFault.malformed("parse", "truncated"),
-            ReplayFault.throw("crm", () => new MyError())],
+            ReplayFault.throw("crm", () => new MyError()), ReplayFault.returns("lookup", "not found")],
    assertions: [TraceAssert.maxAttempts("search", 2)] })
-// .times(n), .onCall(k), .whenInput(x); { value: x } returns any value
+// .times(n), .onCall(k), .whenInput(x)
 ```
 
-Thrown types: timeout → C# `TaskCanceledException` (inner `TimeoutException`), Python `TimeoutError`, Node `FaultTimeoutError` (`name` `"TimeoutError"`); HTTP error and rate limit → `FaultHttpException` (an `HttpRequestException`) / `FaultHttpError` with status and `Retry-After`. A faulted call uses no recording, so a retry is served the recorded output. A fault that never fires fails the replay (`Fault not triggered`). After a fault, a mocked replay stops inconclusive at any call that matches no unused recording. `result.Faults` lists fire counts; `NoErrors` ignores injected faults. Faults replace the whole step: they test code around the step, not error handling inside it.
+Thrown types: timeout → C# `TaskCanceledException` (inner `TimeoutException`), Python `TimeoutError`, Node `FaultTimeoutError` (`name` `"TimeoutError"`); HTTP error and rate limit → `FaultHttpException` (an `HttpRequestException`) / `FaultHttpError` with status and `Retry-After`. `Malformed` (`truncated`: recorded output as JSON cut in half; `empty`: `""` for a text step, else null) and `Returns(step, value)` return instead of throwing. A faulted call uses no recording, so a retry is served the recorded output. A fault that never fires fails the replay (`Fault not triggered`). After a fault, a replay stops inconclusive at any call that matches no unused recording, with reason `AfterFault` / `"after_fault"`. After a fault that fails every call, unused recordings from the faulted step on are excused; earlier ones still fail. `result.Faults` lists fire counts; `NoErrors` ignores injected faults, so assert on the output after an every-call fault. Faults replace the whole step: they test code around the step (a client's built-in `max_retries` is skipped), not error handling inside it. If your retry catches your client's exception type (e.g. `AnthropicRateLimitException`, `anthropic.RateLimitError`), inject it with `Throw`. Scenarios: `ScenarioOptions.Faults` / `faults` for every trace-backed item, plus `ScenarioItem.Faults` / `faults`; a synthetic item with faults fails. An item inconclusive after a fault counts in `InconclusiveAfterFaultCount` / `inconclusive_after_fault_count`, always fails the run (whatever `MaxInconclusiveRate`), and is left out of `InconclusiveRate` and `StayedOnPathRate`; item results have `Faults` / `faults`.
 
 `ctx.IsReplay` (`is_replay`, `isReplay`) is true while a recorded trace is replayed (any mode, scenario trace-backed items, `WithReplay`). Only steps are served from the recording; check it before side effects outside a step, such as sending an email.
 
