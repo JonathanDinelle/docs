@@ -259,7 +259,8 @@ var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOp
     LiveToolSteps = true,
     StepRules =
     {
-        ["search"] = new ReplayStepRule { IgnoreOutputFields = { "request_id", "fetched_at" } },
+        // A formatter whose output carries a timestamp: compare everything else.
+        ["format_quote"] = new ReplayStepRule { IgnoreOutputFields = { "generated_at" } },
         ["read_portal"] = new ReplayStepRule { ReadsExternalState = true },
     },
 });
@@ -270,7 +271,8 @@ Assert.True(result.Passed, result.Summary);
 result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(
     live_tool_steps=True,
     step_rules={
-        "search": ReplayStepRule(ignore_output_fields={"request_id", "fetched_at"}),
+        # A formatter whose output carries a timestamp: compare everything else.
+        "format_quote": ReplayStepRule(ignore_output_fields={"generated_at"}),
         "read_portal": ReplayStepRule(reads_external_state=True),
     },
 ))
@@ -280,9 +282,9 @@ assert result.passed, result.summary
 ```javascript Node
 const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
   live_tool_steps: true,
-  assertions: [],
   step_rules: {
-    search: { ignore_output_fields: ["request_id", "fetched_at"] },
+    // A formatter whose output carries a timestamp: compare everything else.
+    format_quote: { ignore_output_fields: ["generated_at"] },
     read_portal: { reads_external_state: true },
   },
 });
@@ -302,10 +304,10 @@ The agent gets the new output, so the code that parses it runs too.
 |------|-----------------------|
 | `tool` whose input matches its recording | Runs for real. Its output, or its failure, is compared with the recording. |
 | `tool` called with an input the recording doesn't have, or never recorded | Stops the replay as inconclusive: there is no recorded output to compare with. |
-| `tool` marked `ReadsExternalState` (`reads_external_state`) | Served from the recording and counted as not replayed, never as a pass. |
+| `tool` marked `ReadsExternalState` (`reads_external_state`) | Served from the recording and counted as not replayed: the step itself isn't checked. The replay can still pass on the other tools it checked; if no tool was checked, it fails. |
 | `llm` and untyped steps | Served from the recording. |
 
-Outputs are compared as JSON, ignoring key order. `IgnoreOutputFields` (`ignore_output_fields`) drops fields that change on every call, such as ids and timestamps. A tool-live replay in which no tool ran fails, since nothing was checked. `Summary` reports how many tools ran, how many weren't replayed and how many outputs changed. `Fidelity.ToolChecks` (`tool_checks`) lists each comparison. [Faults](/guides/failure-paths) work in a tool-live replay too. A tool-live replay makes no model calls, so `VevalTestSdk` allows it.
+Outputs are compared as JSON, ignoring key order. `IgnoreOutputFields` (`ignore_output_fields`) drops fields that change on every call, such as ids and timestamps. A tool-live replay in which no tool ran fails, since nothing was checked. `Summary` reports how many tools ran, how many weren't replayed and how many outputs changed. A changed output fails the replay even when the replay then stops, for example because the agent's code passed the new output to another tool whose input no longer matches the recording. `Fidelity.ToolChecks` (`tool_checks`) lists each comparison. [Faults](/guides/failure-paths) work in a tool-live replay too. A tool-live replay makes no model calls, so `VevalTestSdk` allows it.
 
 ### Which tools this covers
 
