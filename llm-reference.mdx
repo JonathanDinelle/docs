@@ -276,6 +276,10 @@ const r = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx),
 // r.failures, r.replayed_context, r.output, r.status, r.error
 ```
 
+### Tool-live replay: test tool changes
+
+`LiveToolSteps` (`live_tool_steps`) runs steps recorded as `tool` for real with their recorded inputs and serves every other step (model steps included) from the recording. Each tool's new output is compared with its recorded output (JSON, key order ignored); a difference fails the replay with `Tool output changed: '<step>' (recorded step N) ran with its recorded input and returned <new> instead of <recorded>.` A tool called with an unrecorded input, or never recorded, stops the replay inconclusive. Step rules: `IgnoreOutputFields` / `ignore_output_fields` (drop volatile output fields before comparing), `ReadsExternalState` / `reads_external_state` (serve from the recording, count as not replayed; the step isn't checked, the replay can pass on other tools). Fails if no tool ran. A changed output fails the replay even if it then stops (Failed, not inconclusive). Can't be combined with `LiveModelSteps`. `Fidelity.ToolChecks` / `tool_checks`, `ToolOutputChanges` / `tool_output_changes`, `NotReplayed` / `not_replayed`. Scenarios: `ScenarioOptions.LiveToolSteps` / `live_tool_steps` or per item; wins over `MockModelSteps`; allowed in `VevalTestSdk`. Only for tools whose output follows from their input; tools reading live state need real runs with assertions.
+
 ### Faults: test failure paths
 
 `Faults` (`faults`) in the replay options serves a declared failure instead of a step's recorded output. Needs a mocked or live replay.

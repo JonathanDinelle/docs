@@ -248,6 +248,73 @@ assert.ok(result.passed, result.summary); // fails with e.g. "inconclusive at st
 
 `Passed` is false for an inconclusive replay, so a test that asserts it fails instead of reporting a pass the replay can't back up. `Summary` (`summary`) puts the result on one line, e.g. `inconclusive at step 3 'fill' — 2/5 recorded steps used, 0 diverged but served, 1 live, left the path`, and the replay's trace has status `inconclusive` rather than `error`. For a scenario, pass the rules in `ScenarioOptions` to `RunScenarioAsync` (`StepRules`; `step_rules` in Python and Node) or set them on one item.
 
+## Test tool changes
+
+Mocked and live replays serve tool steps from the recording, so a changed tool never runs: a formatter that now returns the wrong price still passes. A **tool-live replay** inverts live replay. Steps recorded as `tool` run for real, and every other step, model steps included, comes from the recording. Because the model's path is the recorded one, each tool is called with its recorded input, and its new output is compared with the recorded output. A difference fails the replay.
+
+<CodeGroup>
+```csharp C#
+var result = await testSdk.ReplayAsync(trace, service.ExecuteAsync, new ReplayOptions
+{
+    LiveToolSteps = true,
+    StepRules =
+    {
+        // A formatter whose output carries a timestamp: compare everything else.
+        ["format_quote"] = new ReplayStepRule { IgnoreOutputFields = { "generated_at" } },
+        ["read_portal"] = new ReplayStepRule { ReadsExternalState = true },
+    },
+});
+Assert.True(result.Passed, result.Summary);
+```
+
+```python Python
+result = await test_sdk.replay_async(trace, service.execute, ReplayOptions(
+    live_tool_steps=True,
+    step_rules={
+        # A formatter whose output carries a timestamp: compare everything else.
+        "format_quote": ReplayStepRule(ignore_output_fields={"generated_at"}),
+        "read_portal": ReplayStepRule(reads_external_state=True),
+    },
+))
+assert result.passed, result.summary
+```
+
+```javascript Node
+const result = await testSdk.replayAsync(trace, (ctx) => service.execute(ctx), {
+  live_tool_steps: true,
+  step_rules: {
+    // A formatter whose output carries a timestamp: compare everything else.
+    format_quote: { ignore_output_fields: ["generated_at"] },
+    read_portal: { reads_external_state: true },
+  },
+});
+assert.ok(result.passed, result.summary);
+```
+</CodeGroup>
+
+A changed output fails with both values:
+
+```
+Tool output changed: 'format_price' (recorded step 2) ran with its recorded input and returned "EUR 1250" instead of "EUR 12.50".
+```
+
+The agent gets the new output, so the code that parses it runs too.
+
+| Step | In a tool-live replay |
+|------|-----------------------|
+| `tool` whose input matches its recording | Runs for real. Its output, or its failure, is compared with the recording. |
+| `tool` called with an input the recording doesn't have, or never recorded | Stops the replay as inconclusive: there is no recorded output to compare with. |
+| `tool` marked `ReadsExternalState` (`reads_external_state`) | Served from the recording and counted as not replayed: the step itself isn't checked. The replay can still pass on the other tools it checked; if no tool was checked, it fails. |
+| `llm` and untyped steps | Served from the recording. |
+
+Outputs are compared as JSON, ignoring key order. `IgnoreOutputFields` (`ignore_output_fields`) drops fields that change on every call, such as ids and timestamps. A tool-live replay in which no tool ran fails, since nothing was checked. `Summary` reports how many tools ran, how many weren't replayed and how many outputs changed. A changed output fails the replay even when the replay then stops, for example because the agent's code passed the new output to another tool whose input no longer matches the recording. `Fidelity.ToolChecks` (`tool_checks`) lists each comparison. [Faults](/guides/failure-paths) work in a tool-live replay too. A tool-live replay makes no model calls, so `VevalTestSdk` allows it.
+
+### Which tools this covers
+
+Tool-live replay works for tools whose output follows from their input: parsers, formatters, calculations, and lookups against fixed data. It can't check a tool that reads state the recording doesn't hold, such as a live web page, a customer portal, a database, or the clock: running it again returns today's state, not the recorded one. Mark those `ReadsExternalState`, and test them with real runs checked by assertions: `ToolCalled`, `StepExists`, `NoErrors`, `MaxSteps` and `Judge`.
+
+For a scenario, set `LiveToolSteps` (`live_tool_steps`) in `ScenarioOptions` for every trace-backed item, or on one item. It takes precedence over `MockModelSteps`.
+
 ## Skip side effects
 
 Only code inside a step is served from the recording. Work your agent does outside a step runs again on every replay, so check `IsReplay` before it. `IsReplay` is true in every replay, mocked or live, and false in a normal run.
