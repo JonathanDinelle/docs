@@ -122,6 +122,8 @@ This would have made a real LLM call.
 
 This catches regressions where code changes add new LLM calls that weren't in the original trace.
 
+A step that failed in the recorded run fails again: replay throws a `RecordedStepException` (`RecordedStepError` in Python and Node) with the recorded error message, so a retry or fallback runs as it did in production. To test failures the recording doesn't contain, see [Test failure paths](/guides/failure-paths).
+
 The opposite fails too: if the agent never calls a step the trace recorded, the replay fails with
 
 ```

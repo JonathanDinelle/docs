@@ -149,8 +149,12 @@ Veval's own HTTP faults suit code that checks a status: `HttpRequestException.St
 Once a fault has fired, your agent may take a path the recording doesn't cover. Replay never serves that path a recording from somewhere else.
 
 - **Mocked replay.** A call whose name and input still match an unused recording is served as usual. Any other call stops the replay as **inconclusive**: a fallback tool the recording never called, or a model call whose prompt now contains the error. The replay neither passes nor fails. The stop's reason is `AfterFault` (`after_fault`), and the message says where it left the recording.
-- **Live replay.** Model steps run live, so the model really sees the error and its reaction is tested. A tool call that leaves the recording stops the replay, as in any [live replay](/guides/replay), with the reason `AfterFault`.
-- **Unused recordings.** A mocked replay normally fails when it never calls part of the recording. After a fault that fails every call, the recordings from the faulted step on may rightly go unused: the agent took its fallback path. Those are excused and still listed in `Fidelity.Unused`. Recordings before the faulted step still fail the test if the agent skips them. After a fault limited with `Times`, nothing is excused: your agent is expected to recover and rejoin the recording.
+- **Live replay.** Model steps run live, so the model really sees the error and its reaction is tested. Any other call that matches no unused recording stops the replay with the reason `AfterFault`, whatever its type: a live replay without a fault would serve some diverged steps, but after a fault their recordings come from a run where nothing failed.
+- **Unused recordings.** A mocked replay normally fails when it never calls part of the recording. After a fault that fails every call, the recordings from the faulted step on may rightly go unused: the agent took its fallback path. Those are excused and still listed in `Fidelity.Unused`. Recordings before the faulted step still fail the test if the agent skips them, and so do recordings of the faulted step that the fault doesn't target: another input with `WhenInput`, or an earlier call with `OnCall`. After a fault limited with `Times`, nothing is excused: your agent is expected to recover and rejoin the recording.
+
+### Failures in the recording
+
+A step that failed in the recorded run fails again in the replay: replay throws a `RecordedStepException` (`RecordedStepError` in Python and Node) carrying the recorded error message. So a production trace where a call failed and the retry succeeded replays the same way, with no fault declared. The exception isn't the original class, so a retry that only catches a specific type won't catch it. Declare a fault with `Throw` when you need that type.
 
 ## In scenarios
 
