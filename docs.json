@@ -58,6 +58,7 @@
               "guides/scenarios",
               "guides/assertions",
               "guides/replay",
+              "guides/failure-paths",
               "guides/snapshots"
             ]
           },

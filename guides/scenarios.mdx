@@ -353,6 +353,10 @@ const result = await veval.runScenarioAsync("my-scenario", agent, assertions, un
 
 Don't map an inconclusive item to a skipped test: CI ignores skips. `StayedOnPathRate` (`stayed_on_path_rate`) tells you how far live replay can be trusted for the change under test; the dashboard shows it for each run.
 
+### Faults in scenarios
+
+`ScenarioOptions.Faults` and `ScenarioItem.Faults` inject failures into trace-backed items, to test retries and fallbacks across many recordings at once. An item that stops after a fault is counted in `InconclusiveAfterFaultCount` (`inconclusive_after_fault_count`) and always fails the run, whatever `MaxInconclusiveRate` allows. See [Test failure paths](/guides/failure-paths#in-scenarios).
+
 ## What's next
 
 <CardGroup cols={2}>
